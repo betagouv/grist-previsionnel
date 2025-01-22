@@ -106,58 +106,65 @@ export default function PreviewPage() {
   }
 
   function afterChange(changes, source) {
-    console.log('changes', {changes, source})
+    console.log("changes", { changes, source });
     if (source !== "edit" && source !== "Autofill.fill") {
       console.info(`Ignore change from ${source}`);
       console.log(changes);
       return;
     }
-    const updatesOrAdditions = changes.filter(([row, prop, oldValue, newValue]) => {
-      if (oldValue === undefined) {
-        return newValue !== null
-      }
-      if (oldValue === 0) {
-        return newValue !== null
-      }
-      return true
-    }).map((change) => {
-      const row = change[0];
-      const columnInfo = change[1];
-      const column = columnInfo.column;
-      const newValue = change[3] || 0
+    const updatesOrAdditions = changes
+      .filter(([row, prop, oldValue, newValue]) => {
+        if (oldValue === undefined) {
+          return newValue !== null;
+        }
+        if (oldValue === 0) {
+          return newValue !== null;
+        }
+        return true;
+      })
+      .map((change) => {
+        const row = change[0];
+        const columnInfo = change[1];
+        const column = columnInfo.column;
+        const newValue = change[3] || 0;
 
-      const rowDetails = rowData[row];
-      const rowId =
-        rowDetails.values[months[column - 1]?.Mois_de_facturation]?.[0]?.id;
-        console.log({column, i: months[column - 1]?.Mois_de_facturation, rowId, rowDetails})
+        const rowDetails = rowData[row];
+        const rowId =
+          rowDetails.values[months[column - 1]?.Mois_de_facturation]?.[0]?.id;
+        console.log({
+          column,
+          i: months[column - 1]?.Mois_de_facturation,
+          rowId,
+          rowDetails,
+        });
 
-      if (rowId) {
+        if (rowId) {
+          return {
+            require: { id: rowId },
+            fields: {
+              Nb_jours_factures: newValue,
+            },
+          };
+        }
+        const mm = Object.keys(rowDetails.values);
+        const p = rowDetails.values[mm[0]][0].ProchainContrat.rowIds[0];
+        const m = months[column - 1].id;
         return {
-          require: {id: rowId},
           fields: {
+            Contrat_Freelance: p,
+            Mois: m,
             Nb_jours_factures: newValue,
+            Statut: "Estimation principale",
+          },
+          require: {
+            Contrat_Freelance: p,
+            Mois: m,
           },
         };
-      }
-      const mm = Object.keys(rowDetails.values);
-      const p = rowDetails.values[mm[0]][0].ProchainContrat.rowIds[0];
-      const m = months[column - 1].id;
-      return {
-        fields: {
-          Contrat_Freelance: p,
-          Mois: m,
-          Nb_jours_factures: newValue,
-          Statut: "Estimation principale",
-        },
-        require: {
-          Contrat_Freelance: p,
-          Mois: m,
-        }
-      };
-    });
+      });
 
     const table = window.grist.getTable();
-    console.log({updatesOrAdditions})
+    console.log({ updatesOrAdditions });
     //return
     table
       .upsert(updatesOrAdditions)
@@ -168,7 +175,7 @@ export default function PreviewPage() {
         console.error(e);
       })
       .finally((f) => {
-        console.log('f', f);
+        console.log("f", f);
       });
   }
 
