@@ -2,8 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { HotTable } from "@handsontable/react-wrapper";
 import { registerAllModules } from "handsontable/registry";
 
-import data from "./data.json";
-
 registerAllModules();
 
 function filterRowRecords(data) {
