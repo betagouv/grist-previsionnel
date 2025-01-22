@@ -1,116 +1,199 @@
-import Head from "next/head";
-import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
-import styles from "@/styles/Home.module.css";
+import { useState, useEffect, useRef } from "react";
+import { HotTable } from "@handsontable/react-wrapper";
+import { registerAllModules } from "handsontable/registry";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+import data from "./data.json";
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+registerAllModules();
 
-export default function Home() {
+function filterRowRecords(data) {
+  const names = Object.keys(data);
+  const years = data.Annualite_budgetaire;
+
+  const filteredData = years.reduce((a, y, i) => {
+    if (y === 2025) {
+      a.push(
+        names.reduce((res, n) => {
+          res[n] = data[n][i];
+          return res;
+        }, {}),
+      );
+    }
+    return a;
+  }, []);
+
+  return filteredData.toSorted((a, b) => a.c1er_du_mois - b.c1er_du_mois);
+}
+
+export default function PreviewPage() {
+  const hotRef = useRef(null);
+  const [months, setMonths] = useState();
+  const [data, setData] = useState();
+  const [rowData, setRowData] = useState();
+  const [log, setLog] = useState("");
+
+  useEffect(() => {
+    window.grist.ready({
+      allowSelectBy: true,
+    });
+    window.grist.onRecord((record) => {
+      console.log("record", record);
+    });
+    window.grist.onRecords((records) => {
+      console.log("records", records);
+      setData(records);
+    });
+    async function fetchMonths() {
+      const recordData = await window.grist.docApi.fetchTable(
+        "Mois_de_facturation",
+      );
+      setMonths(filterRowRecords(recordData));
+    }
+    fetchMonths();
+  }, []);
+
+  useEffect(() => {
+    if (!data?.length) {
+      setRowData([]);
+      return;
+    }
+    const dataByNames = {};
+    data.forEach((r) => {
+      dataByNames[r.Personne] = dataByNames[r.Personne] || {
+        Personne: r.Personne,
+        values: {},
+      };
+      dataByNames[r.Personne].values[r.Mois] =
+        dataByNames[r.Personne].values[r.Mois] || [];
+      dataByNames[r.Personne].values[r.Mois].push(r);
+    });
+    const names = Object.keys(dataByNames);
+    names.sort();
+    setRowData(names.map((n) => dataByNames[n]));
+  }, [data]);
+
+  useEffect(() => {
+    console.log("rowData", rowData);
+  }, [rowData]);
+
+  function columnFunction(column) {
+    let columnMeta = {
+      //readOnly: true,
+    };
+    if (column === 0) {
+      columnMeta.data = "Personne";
+      columnMeta.readOnly = true;
+    } else if (column <= 12) {
+      const fct = (row) => {
+        return row.values[months?.[column - 1].Mois_de_facturation]?.[0]
+          ?.Nb_jours_factures;
+      };
+      fct.column = column;
+      columnMeta.data = fct;
+    }
+    return columnMeta;
+  }
+
+  function afterSelectionEnd(...args) {
+    if (args[0] < 0) {
+      return;
+    }
+    const rowDetails = rowData[args[0]];
+    const rowId =
+      rowDetails.values[months[args[1] - 1]?.Mois_de_facturation]?.[0]?.id ||
+      "new";
+    grist.setCursorPos({ rowId });
+  }
+
+  function afterChange(changes, source) {
+    console.log('changes', {changes, source})
+    if (source !== "edit" && source !== "Autofill.fill") {
+      console.info(`Ignore change from ${source}`);
+      console.log(changes);
+      return;
+    }
+    const updatesOrAdditions = changes.filter(([row, prop, oldValue, newValue]) => {
+      if (oldValue === undefined) {
+        return newValue !== null
+      }
+      if (oldValue === 0) {
+        return newValue !== null
+      }
+      return true
+    }).map((change) => {
+      const row = change[0];
+      const columnInfo = change[1];
+      const column = columnInfo.column;
+      const newValue = change[3] || 0
+
+      const rowDetails = rowData[row];
+      const rowId =
+        rowDetails.values[months[column - 1]?.Mois_de_facturation]?.[0]?.id;
+        console.log({column, i: months[column - 1]?.Mois_de_facturation, rowId, rowDetails})
+
+      if (rowId) {
+        return {
+          require: {id: rowId},
+          fields: {
+            Nb_jours_factures: newValue,
+          },
+        };
+      }
+      const mm = Object.keys(rowDetails.values);
+      const p = rowDetails.values[mm[0]][0].ProchainContrat.rowIds[0];
+      const m = months[column - 1].id;
+      return {
+        fields: {
+          Contrat_Freelance: p,
+          Mois: m,
+          Nb_jours_factures: newValue,
+          Statut: "Estimation principale",
+        },
+        require: {
+          Contrat_Freelance: p,
+          Mois: m,
+        }
+      };
+    });
+
+    const table = window.grist.getTable();
+    console.log({updatesOrAdditions})
+    //return
+    table
+      .upsert(updatesOrAdditions)
+      .then((r) => {
+        console.log(r);
+      })
+      .catch((e) => {
+        console.error(e);
+      })
+      .finally((f) => {
+        console.log('f', f);
+      });
+  }
+
   return (
     <>
-      <Head>
-        <title>Create Next App</title>
-        <meta name="description" content="Generated by create next app" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
-      <div
-        className={`${styles.page} ${geistSans.variable} ${geistMono.variable}`}
-      >
-        <main className={styles.main}>
-          <Image
-            className={styles.logo}
-            src="/next.svg"
-            alt="Next.js logo"
-            width={180}
-            height={38}
-            priority
-          />
-          <ol>
-            <li>
-              Get started by editing <code>pages/index.js</code>.
-            </li>
-            <li>Save and see your changes instantly.</li>
-          </ol>
-
-          <div className={styles.ctas}>
-            <a
-              className={styles.primary}
-              href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Image
-                className={styles.logo}
-                src="/vercel.svg"
-                alt="Vercel logomark"
-                width={20}
-                height={20}
-              />
-              Deploy now
-            </a>
-            <a
-              href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.secondary}
-            >
-              Read our docs
-            </a>
-          </div>
-        </main>
-        <footer className={styles.footer}>
-          <a
-            href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              aria-hidden
-              src="/file.svg"
-              alt="File icon"
-              width={16}
-              height={16}
-            />
-            Learn
-          </a>
-          <a
-            href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              aria-hidden
-              src="/window.svg"
-              alt="Window icon"
-              width={16}
-              height={16}
-            />
-            Examples
-          </a>
-          <a
-            href="https://nextjs.org?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              aria-hidden
-              src="/globe.svg"
-              alt="Globe icon"
-              width={16}
-              height={16}
-            />
-            Go to nextjs.org →
-          </a>
-        </footer>
+      <HotTable
+        ref={hotRef}
+        data={rowData}
+        rowHeaders={false}
+        colHeaders={[
+          "Personne",
+          ...(months?.map?.((m) => m.Mois_de_facturation) || []),
+        ]}
+        columns={columnFunction}
+        height="auto"
+        licenseKey="non-commercial-and-evaluation"
+        afterSelectionEnd={afterSelectionEnd}
+        afterChange={afterChange}
+        copyPaste={true}
+      />
+      <div>{data?.length}</div>
+      <button onClick={() => window.location.reload()}>Refresh Page</button>
+      <button onClick={() => console.log(rowData)}>Log raw</button>
+      <div>
+        <code>{log}</code>
       </div>
     </>
   );
