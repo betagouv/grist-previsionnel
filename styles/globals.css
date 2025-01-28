@@ -11,9 +11,11 @@
 }
 
 html,
-body {
+body,
+body > * {
   max-width: 100vw;
   overflow-x: hidden;
+  height: 100%;
 }
 
 body {
@@ -39,4 +41,14 @@ a {
   html {
     color-scheme: dark;
   }
+}
+
+
+.fullPage {
+  height: 100%;
+}
+
+.fullPage > button {
+  height: 98%;
+  width:  100%;
 }
