@@ -43,12 +43,11 @@ a {
   }
 }
 
-
 .fullPage {
   height: 100%;
 }
 
 .fullPage > button {
   height: 98%;
-  width:  100%;
+  width: 100%;
 }
