@@ -51,3 +51,11 @@ a {
   height: 98%;
   width: 100%;
 }
+
+.handsontable .italic {
+  font-style: italic;
+}
+
+.handsontable .bold {
+  font-weight: bold;
+}

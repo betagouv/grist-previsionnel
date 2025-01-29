@@ -112,16 +112,24 @@ export default function PreviewPage() {
 
     setTableData([...data, [], ["Total", ...sumData.map(amountDisplay)]]);
   }, [rowData, months]);
+
   useEffect(() => {
     buildTableData();
   }, [months, rowData]);
+
+  const getCellData = useCallback(
+    (row, column) => {
+      const details = rowData[row];
+      return details?.values?.[months[column - 1]?.Mois_de_facturation];
+    },
+    [rowData, months],
+  );
 
   function afterSelectionEnd(row, column) {
     if (row < 0) {
       return;
     }
-    const rowDetails = rowData[row];
-    const input = rowDetails?.values[months[column - 1]?.Mois_de_facturation];
+    const input = getCellData(row, column);
     const rowId = input?.length === 1 ? input[0].id : "new";
     grist.setCursorPos({ rowId });
   }
@@ -141,7 +149,7 @@ export default function PreviewPage() {
 
     const updatesOrAdditions = changes
       .filter(([row, prop, oldValue, newValue]) => {
-        return oldValue != newValue; // !isNaN(parseFloat(newValue))
+        return oldValue != newValue;
       })
       .map((change) => {
         const row = change[0];
@@ -228,13 +236,35 @@ export default function PreviewPage() {
           const cellProperties = {};
           if (row >= rowData.length || column > 12) {
             cellProperties.readOnly = true;
-          }
-          if (column === 13) {
-            cellProperties.className = "htRight";
+          } else if (column > 0) {
+            const input = getCellData(row, column);
+            if (input) {
+              if (input.length === 1) {
+                const c = input[0];
+                if (c.Statut === "Réalisé") {
+                  cellProperties.className = "bold";
+                  cellProperties.readOnly = true;
+                }
+              } else if (input.length > 1) {
+                cellProperties.className = "italic";
+                cellProperties.readOnly = true;
+              }
+            }
           }
           return cellProperties;
         }}
       />
+      <div>
+        <p>
+          Les nombres de jours en <i>italique</i> sont calculés en sommant
+          plusieurs consommations mensuelles. Pour cette raison, ils ne sont pas
+          modifiables.
+        </p>
+        <p>
+          Les nombres de jours en <b>gras</b> sont indiqués comme « Réalisé ».
+          Pour cette raison, ils ne sont pas modifiables.
+        </p>
+      </div>
     </>
   );
 }
