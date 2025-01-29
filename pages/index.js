@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { HotTable } from "@handsontable/react-wrapper";
 import { registerAllModules } from "handsontable/registry";
 
@@ -25,20 +25,17 @@ function filterRowRecords(data) {
 
 export default function PreviewPage() {
   const hotRef = useRef(null);
-  const [months, setMonths] = useState();
+  const [months, setMonths] = useState([]);
   const [data, setData] = useState();
-  const [rowData, setRowData] = useState();
+  const [rowData, setRowData] = useState([]);
+  const [tableData, setTableData] = useState([]);
   const [log, setLog] = useState("");
 
   useEffect(() => {
     window.grist.ready({
       allowSelectBy: true,
     });
-    window.grist.onRecord((record) => {
-      console.log("record", record);
-    });
     window.grist.onRecords((records) => {
-      console.log("records", records);
       setData(records);
     });
     async function fetchMonths() {
@@ -70,72 +67,90 @@ export default function PreviewPage() {
     setRowData(names.map((n) => dataByNames[n]));
   }, [data]);
 
+  const accSum = (a, v) => a + (v || 0);
+  const amountDisplay = (v) =>
+    v.toLocaleString("FR-fr", { style: "currency", currency: "EUR" });
+
+  const buildTableData = useCallback(() => {
+    const data = rowData.map((person) => {
+      return [
+        person.Personne,
+        ...months.map((m, i) => {
+          return person.values[m.Mois_de_facturation]
+            ?.map((v) => v.Nb_jours_factures)
+            .reduce(accSum, 0);
+        }),
+      ];
+    });
+
+    data.forEach((r, i) => {
+      r.push("");
+      const v = months
+        .map((m) => {
+          const person = rowData[i];
+          return person.values[m.Mois_de_facturation]
+            ?.map((v) => v.Total_Facture_TTC)
+            .reduce(accSum, 0);
+        })
+        .reduce(accSum, 0);
+      r.push(amountDisplay(v));
+    });
+
+    const sumData = months.map((m) => {
+      const total = rowData
+        .map((r) => {
+          return r.values[m.Mois_de_facturation]
+            ?.map((v) => v.Total_Facture_TTC)
+            .reduce(accSum, 0);
+        })
+        .reduce(accSum, 0);
+      return total;
+    });
+    const fullSum = sumData.reduce(accSum, 0);
+    sumData.push("");
+    sumData.push(fullSum);
+
+    setTableData([...data, [], ["Total", ...sumData.map(amountDisplay)]]);
+  }, [rowData, months]);
   useEffect(() => {
-    console.log("rowData", rowData);
-  }, [rowData]);
+    buildTableData();
+  }, [months, rowData]);
 
-  function columnFunction(column) {
-    let columnMeta = {
-      //readOnly: true,
-    };
-    if (column === 0) {
-      columnMeta.data = "Personne";
-      columnMeta.readOnly = true;
-    } else if (column <= 12) {
-      const fct = (row) => {
-        return row.values[months?.[column - 1].Mois_de_facturation]?.[0]
-          ?.Nb_jours_factures;
-      };
-      fct.column = column;
-      columnMeta.data = fct;
-    }
-    return columnMeta;
-  }
-
-  function afterSelectionEnd(...args) {
-    if (args[0] < 0) {
+  function afterSelectionEnd(row, column) {
+    if (row < 0) {
       return;
     }
-    const rowDetails = rowData[args[0]];
-    const rowId =
-      rowDetails.values[months[args[1] - 1]?.Mois_de_facturation]?.[0]?.id ||
-      "new";
+    const rowDetails = rowData[row];
+    const input = rowDetails?.values[months[column - 1]?.Mois_de_facturation];
+    const rowId = input?.length === 1 ? input[0].id : "new";
     grist.setCursorPos({ rowId });
   }
 
   function afterChange(changes, source) {
-    console.log("changes", { changes, source });
-    if (source !== "edit" && source !== "Autofill.fill") {
+    if (
+      source !== "edit" &&
+      source !== "Autofill.fill" &&
+      source !== "UndoRedo.undo"
+    ) {
       console.info(`Ignore change from ${source}`);
-      console.log(changes);
+      if (source !== "updateData" && source !== "ColumnSummary.reset") {
+        buildTableData();
+      }
       return;
     }
+
     const updatesOrAdditions = changes
       .filter(([row, prop, oldValue, newValue]) => {
-        if (oldValue === undefined) {
-          return newValue !== null;
-        }
-        if (oldValue === 0) {
-          return newValue !== null;
-        }
-        return true;
+        return oldValue != newValue; // !isNaN(parseFloat(newValue))
       })
       .map((change) => {
         const row = change[0];
-        const columnInfo = change[1];
-        const column = columnInfo.column;
+        const column = change[1];
+        const month = months[column - 1];
         const newValue = change[3] || 0;
 
         const rowDetails = rowData[row];
-        const rowId =
-          rowDetails.values[months[column - 1]?.Mois_de_facturation]?.[0]?.id;
-        console.log({
-          column,
-          i: months[column - 1]?.Mois_de_facturation,
-          rowId,
-          rowDetails,
-        });
-
+        const rowId = rowDetails.values[month.Mois_de_facturation]?.[0]?.id;
         if (rowId) {
           return {
             require: { id: rowId },
@@ -161,9 +176,12 @@ export default function PreviewPage() {
         };
       });
 
+    if (updatesOrAdditions.length == 0) {
+      buildTableData();
+      return;
+    }
+
     const table = window.grist.getTable();
-    console.log({ updatesOrAdditions });
-    //return
     table
       .upsert(updatesOrAdditions)
       .then((r) => {
@@ -181,25 +199,42 @@ export default function PreviewPage() {
     <>
       <HotTable
         ref={hotRef}
-        data={rowData}
+        data={tableData}
         rowHeaders={false}
         colHeaders={[
           "Personne",
-          ...(months?.map?.((m) => m.Mois_de_facturation) || []),
+          ...(months.map((m) => m.Mois_de_facturation) || []),
+          "",
+          "Total",
         ]}
-        columns={columnFunction}
+        columns={[
+          {
+            type: "text",
+            readOnly: true,
+          },
+          ...[...months, ...["", "Total"]].map(() => {
+            return {
+              type: "numeric",
+              className: "htRight",
+            };
+          }),
+        ]}
         height="auto"
         licenseKey="non-commercial-and-evaluation"
         afterSelectionEnd={afterSelectionEnd}
         afterChange={afterChange}
         copyPaste={true}
+        cells={(row, column) => {
+          const cellProperties = {};
+          if (row >= rowData.length || column > 12) {
+            cellProperties.readOnly = true;
+          }
+          if (column === 13) {
+            cellProperties.className = "htRight";
+          }
+          return cellProperties;
+        }}
       />
-      <div>{data?.length}</div>
-      <button onClick={() => window.location.reload()}>Refresh Page</button>
-      <button onClick={() => console.log(rowData)}>Log raw</button>
-      <div>
-        <code>{log}</code>
-      </div>
     </>
   );
 }
