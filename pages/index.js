@@ -138,7 +138,7 @@ export default function PreviewPage() {
     if (
       source !== "edit" &&
       source !== "Autofill.fill" &&
-      source !== "UndoRedo.undo"
+      !source.startsWith("UndoRedo.")
     ) {
       console.info(`Ignore change from ${source}`);
       if (source !== "updateData" && source !== "ColumnSummary.reset") {
