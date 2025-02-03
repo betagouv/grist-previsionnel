@@ -54,13 +54,14 @@ export default function PreviewPage() {
     }
     const dataByNames = {};
     data.forEach((r) => {
-      dataByNames[r.Personne] = dataByNames[r.Personne] || {
-        Personne: r.Personne,
+      const personKey = [r.Personne, r.Domaine].join(" - ");
+      dataByNames[personKey] = dataByNames[personKey] || {
+        Personne: personKey,
         values: {},
       };
-      dataByNames[r.Personne].values[r.Mois] =
-        dataByNames[r.Personne].values[r.Mois] || [];
-      dataByNames[r.Personne].values[r.Mois].push(r);
+      dataByNames[personKey].values[r.Mois] =
+        dataByNames[personKey].values[r.Mois] || [];
+      dataByNames[personKey].values[r.Mois].push(r);
     });
     const names = Object.keys(dataByNames);
     names.sort();
@@ -175,7 +176,7 @@ export default function PreviewPage() {
             Contrat_Freelance: p,
             Mois: m,
             Nb_jours_factures: newValue,
-            Statut: "Estimation principale",
+            Statut: "Estimation",
           },
           require: {
             Contrat_Freelance: p,
