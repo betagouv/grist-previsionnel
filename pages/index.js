@@ -4,7 +4,7 @@ import { registerAllModules } from "handsontable/registry";
 
 registerAllModules();
 
-function filterRowRecords(data) {
+function filterMonthRowRecords(data) {
   const names = Object.keys(data);
   const years = data.Annualite_budgetaire;
 
@@ -42,7 +42,7 @@ export default function PreviewPage() {
       const recordData = await window.grist.docApi.fetchTable(
         "Mois_de_facturation",
       );
-      setMonths(filterRowRecords(recordData));
+      setMonths(filterMonthRowRecords(recordData));
     }
     fetchMonths();
   }, []);
