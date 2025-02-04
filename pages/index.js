@@ -9,7 +9,7 @@ function filterMonthRowRecords(data) {
   const years = data.Annualite_budgetaire;
 
   const filteredData = years.reduce((a, y, i) => {
-    if (y === 2025) {
+    if (y == 2025) {
       a.push(
         names.reduce((res, n) => {
           res[n] = data[n][i];
