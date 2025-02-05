@@ -34,6 +34,7 @@ export default function PreviewPage() {
   useEffect(() => {
     window.grist.ready({
       allowSelectBy: true,
+      requiredAccess: "full",
     });
     window.grist.onRecords((records) => {
       setData(records);

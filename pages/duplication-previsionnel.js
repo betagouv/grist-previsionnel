@@ -5,7 +5,9 @@ export default function DuplicatePage() {
   const [wip, setWIP] = useState(false);
 
   useEffect(() => {
-    window.grist.ready();
+    window.grist.ready({
+      requiredAccess: "full",
+    });
     window.grist.onRecord((record) => {
       setPrevisionnel(record);
     });
