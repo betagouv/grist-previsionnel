@@ -240,16 +240,19 @@ export default function PreviewPage() {
           } else if (column > 0) {
             const input = getCellData(row, column);
             if (input) {
-              if (input.length === 1) {
-                const c = input[0];
-                if (c.Statut === "Réalisé") {
-                  cellProperties.className = "bold";
-                  cellProperties.readOnly = true;
-                }
-              } else if (input.length > 1) {
-                cellProperties.className = "italic";
+              const classNames = [];
+              if (input.length > 1) {
+                classNames.push("italic");
                 cellProperties.readOnly = true;
               }
+              if (
+                input.filter((c) => c.Statut === "Réalisé").length ===
+                input.length
+              ) {
+                classNames.push("bold");
+                cellProperties.readOnly = true;
+              }
+              cellProperties.className = classNames.join(" ");
             }
           }
           return cellProperties;
