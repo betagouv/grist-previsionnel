@@ -5,15 +5,11 @@ import { registerAllModules } from "handsontable/registry";
 registerAllModules();
 
 export default function PreviewPage() {
-  const commandeRef = useRef(null);
-  const paiementRef = useRef(null);
-  const [date, setDate] = useState();
+  const inputRef = useRef(null);
+  const [data, setData] = useState();
+  const [mapping, setMapping] = useState();
   const [xmlContent, setXmlContent] = useState();
-  const [commandes, setCommandes] = useState([]);
-  const [paiements, setPaiements] = useState([]);
 
-  const [bc, setBC] = useState({ No_DA: [] });
-  const [sf, setSF] = useState({});
   const [csv, setCSV] = useState("");
 
   const direct = ["key", "type", "summary", "created", "reporter", "parent"];
@@ -31,68 +27,38 @@ export default function PreviewPage() {
     "Montant EJ/SF TTC",
   ];
 
-  useEffect(() => {
-    window.grist.ready({});
-    window.grist.onRecord(async (record) => {
-      setDate(record.Date.toISOString());
+  const gristSafeNames = [...direct, ...custom].map((n) => {
+    return n
+      .replace(/[ \-\/]/g, "_")
+      .replace(/é/g, "e")
+      .replace(/û/g, "u");
+  });
 
-      if (!record.Fichier.length) {
-        return;
+  const config = {
+    requiredAccess: "full",
+    columns: gristSafeNames.map((name) => {
+      if (name == "created" || name.startsWith("Date")) {
+        return {
+          name,
+          type: "DateTime",
+        };
       }
-      const tokenInfo = await grist.docApi.getAccessToken({ readOnly: true });
-      const id = record.Fichier[0];
-      const src = `${tokenInfo.baseUrl}/attachments/${id}/download?auth=${tokenInfo.token}`;
-      const response = await fetch(src);
-      const data = await response.text();
-      const p = new DOMParser();
-      const xml = p.parseFromString(data, "application/xml");
-      setXmlContent(xml);
-    });
-
-    async function fetchData() {
-      const bcRecordData =
-        await window.grist.docApi.fetchTable("Bons_de_commande");
-      const sfRecordData =
-        await window.grist.docApi.fetchTable("Services_Faits");
-      setBC(bcRecordData);
-      setSF(sfRecordData);
-    }
-    fetchData();
-  }, []);
-
-  function setOK(matches) {
-    if (matches.length === 0) {
-      return "Absent";
-    }
-    if (matches.length > 1) {
-      return "Multiple";
-    }
-    return "OK";
-  }
-
-  function extractCustomField(item, name) {
-    const m = item.getElementsByTagName("customfield");
-    for (const cf of m) {
-      const n = cf.getElementsByTagName("customfieldname")[0];
-      if (n.innerHTML === name) {
-        const collection = cf.getElementsByTagName("customfieldvalues")[0];
-        const v = collection.getElementsByTagName("customfieldvalue")[0];
-        return v.innerHTML;
-      }
-    }
-  }
-
-  function getGristData(matches, bc) {
-    if (matches.length !== 1) {
       return {
-        montant: "",
+        name,
       };
-    }
-    const i = matches[0];
-    return {
-      montant: bc.Montant_AE[i],
-    };
-  }
+    }),
+  };
+
+  useEffect(() => {
+    window.grist.ready(config);
+
+    window.grist.onOptions((options, settings) => {
+      console.log({ options, settings });
+    });
+    window.grist.onRecord((record, mapping) => {
+      setMapping(mapping);
+    });
+  }, []);
 
   useEffect(() => {
     if (!xmlContent) {
@@ -100,12 +66,8 @@ export default function PreviewPage() {
     }
 
     let done = true;
-    const newCommandes = [];
-    const newPaiements = [];
     const list = xmlContent.children[0].children[0].children;
-
     const data = [];
-
     for (var i in list) {
       const element = list[i];
       if (element.tagName !== "item") {
@@ -130,78 +92,106 @@ export default function PreviewPage() {
           customData[idx] = cfv?.textContent;
         }
       }
-
-      const type = element.getElementsByTagName("type")[0].innerHTML;
-      const dest = type === "Commande" ? newCommandes : newPaiements;
-
-      const name = element.getElementsByTagName("title")[0].innerHTML;
-      const obj = {
-        nom: name,
-      };
-      if (type === "Commande") {
-        const key = element.getElementsByTagName("key")[0].innerHTML.slice(3);
-        const matches = bc.No_DA.map((v, i) => {
-          if (v === key) {
-            return i;
-          }
-          return null;
-        }).filter((v) => v);
-        obj.OK = setOK(matches);
-        const gdata = getGristData(matches, bc);
-        const montant = extractCustomField(element, "Montant EJ/SF TTC");
-        obj.Montants = `${gdata.montant} / ${montant}`;
-      } else {
-        obj.OK = "Todo";
-      }
-      dest.push(obj);
       data.push([...directData, ...customData]);
     }
 
-    setCSV(
-      [[...direct, ...custom].join(";"), ...data.map((r) => r.join(";"))].join(
-        "\n",
-      ),
-    );
-    setCommandes(newCommandes);
-    setPaiements(newPaiements);
-  }, [xmlContent, bc]);
+    setData(
+      data.map((row) => {
+        const k = row[0];
 
-  function download(dataurl, filename) {
-    const link = document.createElement("a");
-    link.href = dataurl;
-    link.download = filename;
-    link.click();
+        const fields = row.reduce((a, v, i) => {
+          const ff = mapping[gristSafeNames[i]];
+
+          if (ff == "created" || ff.startsWith("Date")) {
+            a[ff] = new Date(v).toISOString();
+          } else {
+            a[ff] = v;
+          }
+          return a;
+        }, {});
+        return {
+          fields,
+          require: {
+            [mapping.key]: k,
+          },
+        };
+      }),
+    );
+  }, [xmlContent]);
+
+  async function updateXML(e) {
+    const f = e.target.files[0];
+    const textDecoder = new TextDecoder("utf-8"); // You can specify the encoding here
+    const buffer = await f.arrayBuffer();
+    const data = textDecoder.decode(buffer);
+    const p = new DOMParser();
+    const xml = p.parseFromString(data, "application/xml");
+    setXmlContent(xml);
   }
 
-  function click() {
-    const text = csv;
-    const btxt = new Buffer(text).toString("base64");
-    download("data:text/csv;charset=utf-8;base64," + btxt, "chordee.csv");
+  async function upload() {
+    try {
+      const tokenInfo = await window.grist.docApi.getAccessToken({
+        readOnly: false,
+      });
+      const src = `${tokenInfo.baseUrl}/attachments?auth=${tokenInfo.token}`;
+      let formData = new FormData();
+      formData.append("upload", inputRef.current.files[0]);
+
+      const re = await fetch(src, {
+        method: "POST",
+        body: formData,
+      });
+      const res = await re.json();
+      console.log(res);
+    } catch (e) {
+      console.log(e);
+    }
+  }
+
+  async function download() {
+    try {
+      const tokenInfo = await window.grist.docApi.getAccessToken({
+        readOnly: false,
+      });
+      const id = 136;
+      const src = `${tokenInfo.baseUrl}/attachments/${id}/download?auth=${tokenInfo.token}`;
+      const re = await fetch(src);
+      const res = await re.text();
+      console.log(res);
+    } catch (e) {
+      console.log(e);
+    }
+  }
+
+  async function update() {
+    const table = window.grist.getTable();
+    const result = await table.upsert(data);
+    inputRef.current.value = "";
+    setData();
   }
 
   return (
     <>
       <div>
-        <h1>{date}</h1>
-        <div>Commandes</div>
-        <HotTable
-          ref={commandeRef}
-          data={commandes}
-          colHeaders={["ID", "Validation", "Montants"]}
-          readOnly={true}
-          height="auto"
-          licenseKey="non-commercial-and-evaluation"
-        />
-        <div>Services faits</div>
-        <HotTable
-          ref={paiementRef}
-          data={paiements}
-          colHeaders={["ID", "Validation"]}
-          readOnly={true}
-          height="auto"
-          licenseKey="non-commercial-and-evaluation"
-        />
-        <button onClick={click}>Get CSV</button>
+        {mapping ? (
+          <>
+            <p>Déposez un fichier XML de Chordée</p>
+            <input
+              ref={inputRef}
+              type="file"
+              onChange={updateXML}
+              accept="application/xml"
+            />
+            <button disabled={!data?.length} onClick={update}>
+              Mettre à jour {data?.length || "des"} éléments
+            </button>
+            {/*<button onClick={upload}>upload</button>
+          <button onClick={download}>download</button>*/}
+          </>
+        ) : (
+          <></>
+        )}
       </div>
     </>
   );
