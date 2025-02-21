@@ -59,3 +59,7 @@ a {
 .handsontable .bold {
   font-weight: bold;
 }
+
+.h80p {
+  height: 80%;
+}

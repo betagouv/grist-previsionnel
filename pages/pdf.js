@@ -4,9 +4,12 @@ import * as pdfjsLib from "pdfjs-dist";
 
 export default function SignPDFPage() {
   const [doc, setDoc] = useState();
+  const [text, setText] = useState("Jennifer STEPHAN\nresponsable Ruche numérique\nSG/SNUM")
+  const [name, setName] = useState("Jennifer STEPHAN")
   const [pageCount, setPageCount] = useState(0);
   const [pageNumber, setPageNumber] = useState(undefined);
   const [clickEvent, setClickEvent] = useState(undefined);
+  const [result, setResult] = useState();
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = "pdf.worker.mjs";
   const url = "BRB-177 (EJ).pdf";
@@ -17,8 +20,8 @@ export default function SignPDFPage() {
         res.arrayBuffer(),
       );
 
+      setDoc(existingPdfBytes);
       const pdfDoc = await PDFDocument.load(existingPdfBytes);
-      setDoc(pdfDoc);
       setPageCount(pdfDoc.getPageCount());
       setPageNumber(0);
     }
@@ -30,62 +33,62 @@ export default function SignPDFPage() {
       return;
     }
     updateDisplayedContent(clickEvent);
-  }, [doc, pageNumber, clickEvent]);
+  }, [doc, pageNumber, clickEvent, result]);
 
   async function updateDisplayedContent(e) {
     if (!doc || pageNumber === undefined) {
       return;
     }
-    console.log({ e });
+    const pdfDoc = await PDFDocument.load(doc);
     if (e) {
-      const timesRomanFont = await doc.embedFont(StandardFonts.TimesRoman);
-      const page = doc.getPage(pageNumber);
+      const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
+      const TimesRomanItalic = await pdfDoc.embedFont(StandardFonts.TimesRomanItalic);
+      const page = pdfDoc.getPage(pageNumber);
       const { width, height } = page.getSize();
 
-      // Draw a string of text toward the top of the page
-      const fontSize = 30;
-      page.drawText("Thomas Guillet", {
+      const fontSize = 20;
+      const lineHeight = timesRomanFont.heightAtSize(fontSize)*1.5
+      page.drawText(text, {
         x: e.pageX,
         y: height - e.pageY - fontSize / 2, // - 4 * fontSize,
         size: fontSize,
         font: timesRomanFont,
-        color: rgb(0, 0.53, 0.71),
-      });
+        lineHeight
+        });
+      page.drawText(name, {
+        x: e.pageX,
+        y: height - e.pageY - fontSize / 2 - 10 - lineHeight * text.split('\n').length,
+        size: fontSize,
+        font: TimesRomanItalic
+        });
     }
 
-    const pdfDataUri = await doc.save();
+    const pdfDataUri = await pdfDoc.save();
+
+    if (result) {
+      const pdfDataUri = await pdfDoc.saveAsBase64({ dataUri: true });
+      document.getElementById("pdf").src = pdfDataUri;
+    }
 
     var loadingTask = pdfjsLib.getDocument({ data: pdfDataUri });
-    // Asynchronous download of PDF
-    loadingTask.promise.then(
-      function (pdf) {
-        console.log("PDF loaded");
-        console.log(pdf);
-        console.log(pageNumber);
+    const pdf = await loadingTask.promise
+    const page = await pdf.getPage(pageNumber + 1)
+    var scale = 1;
+    var viewport = page.getViewport({ scale: scale });
 
-        // Fetch the first page
-        pdf.getPage(pageNumber + 1).then(function (page) {
-          console.log("Page loaded");
+    var canvas = document.getElementById("the-canvas");
+    var context = canvas.getContext("2d");
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
 
-          var scale = 1;
-          var viewport = page.getViewport({ scale: scale });
-
-          // Prepare canvas using PDF page dimensions
-          var canvas = document.getElementById("the-canvas");
-          var context = canvas.getContext("2d");
-          canvas.height = viewport.height;
-          canvas.width = viewport.width;
-
-          // Render PDF page into canvas context
-          var renderContext = {
-            canvasContext: context,
-            viewport: viewport,
-          };
-          var renderTask = page.render(renderContext);
-          renderTask.promise.then(function () {
-            console.log("Page rendered");
-          });
-        });
+    // Render PDF page into canvas context
+    var renderContext = {
+      canvasContext: context,
+      viewport: viewport,
+    };
+    var renderTask = page.render(renderContext);
+    renderTask.promise.then(function () {
+        console.log("Page rendered");
       },
       function (reason) {
         // PDF loading error
@@ -94,110 +97,57 @@ export default function SignPDFPage() {
     );
   }
 
-  useEffect(() => {
-    console.log(pdfjsLib);
-
-    async function createPdf() {
-      const pdfDoc = await PDFDocument.create();
-      const page = pdfDoc.addPage([350, 400]);
-      page.moveTo(110, 200);
-      page.drawText("Hello World!");
-      const pdfDataUri = await pdfDoc.saveAsBase64({ dataUri: true });
-      document.getElementById("pdf").src = pdfDataUri;
-    }
-    //createPdf();
-
-    async function fetchPdf() {
-      const existingPdfBytes = await fetch(url).then((res) =>
-        res.arrayBuffer(),
-      );
-
-      const pdfDoc = await PDFDocument.load(existingPdfBytes);
-      const pdfDataUri = await pdfDoc.saveAsBase64({ dataUri: true });
-      document.getElementById("pdf").src = pdfDataUri;
-    }
-    //fetchPdf()
-
-    function showPdf() {
-      // Asynchronous download of PDF
-      var loadingTask = pdfjsLib.getDocument(url);
-      loadingTask.promise.then(
-        function (pdf) {
-          console.log("PDF loaded");
-          console.log(pdf);
-
-          // Fetch the first page
-          var pageNumber = 1;
-          pdf.getPage(pageNumber).then(function (page) {
-            console.log("Page loaded");
-
-            var scale = 1.5;
-            var viewport = page.getViewport({ scale: scale });
-
-            // Prepare canvas using PDF page dimensions
-            var canvas = document.getElementById("the-canvas");
-            var context = canvas.getContext("2d");
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-
-            // Render PDF page into canvas context
-            var renderContext = {
-              canvasContext: context,
-              viewport: viewport,
-            };
-            var renderTask = page.render(renderContext);
-            renderTask.promise.then(function () {
-              console.log("Page rendered");
-            });
-          });
-        },
-        function (reason) {
-          // PDF loading error
-          console.error(reason);
-        },
-      );
-    }
-    //showPdf()
-
-    updateDisplayedContent();
-  }, []);
-
   function onMouseMove(e) {
     console.log(e);
   }
 
   function onClick(e) {
+    setResult(false);
     setClickEvent(e);
+  }
+
+  function updatePageNumber(shift) {
+    if (shift < 0) {
+      if (pageNumber == 0) {
+        return
+      }
+    }
+    if (shift > 0) {
+      if (pageNumber === pageCount - 1) {
+        return
+      }
+    }
+
+    setResult(false);
+    setPageNumber(pageNumber + shift)
+    setClickEvent()
+  }
+
+  function generateSignedDoc() {
+    setResult(true)
   }
 
   return (
     <>
       <div className="h80p">
-        {false && (
-          <iframe id="pdf" style={{ width: "100%", height: "100%" }}></iframe>
-        )}
         <div>
-          <button onClick={() => setPageNumber(pageNumber - 1)}>
+          <button disabled={pageNumber === 0} onClick={() => updatePageNumber(-1)}>
             Page précédente
           </button>
-          <button onClick={() => setPageNumber(pageNumber + 1)}>
+          <button disabled={pageNumber === pageCount - 1} onClick={() => updatePageNumber(1)}>
             Page suivante
           </button>
+          {clickEvent ? <>
+            <span>{clickEvent?.pageX} / {clickEvent?.pageY}</span>
+            <button onClick={generateSignedDoc}>Valider</button>
+            </> : <></>}
         </div>
         <canvas
           onMouseMove={onMouseMove}
           onClick={onClick}
           id="the-canvas"
         ></canvas>
-        <p>
-          Les nombres de jours en <i>italique</i> sont calculés en sommant
-          plusieurs consommations mensuelles. Pour cette raison, ils ne sont pas
-          modifiables.
-        </p>
-        <p>
-          Les nombres de jours en <b>gras</b> sont indiqués comme « Réalisé ».
-          Pour cette raison, ils ne sont pas modifiables.
-        </p>
+        { result && <iframe id="pdf" style={{ width: "100%", height: "100%" }}></iframe>}
       </div>
     </>
   );
