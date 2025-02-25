@@ -106,6 +106,60 @@ function PageCanvas(props) {
   );
 }
 
+function EditView(props) {
+  const [title, setTitle] = useState("");
+  const [name, setName] = useState("");
+  const [init, setInit] = useState(false);
+
+  useEffect(() => {
+    const config = EditView.getConfig();
+    if (config) {
+      setTitle(config.title);
+      setName(config.name);
+    }
+    setInit(true);
+  }, []);
+
+  useEffect(() => {
+    if (!init) {
+      return;
+    }
+    const config = {
+      title,
+      name,
+    };
+    window.localStorage.setItem("sign-config", JSON.stringify(config));
+  }, [title, name]);
+
+  return (
+    <div>
+      <div>
+        <label>
+          Title:
+          <br />
+          <textarea
+            rows={3}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+        </label>{" "}
+      </div>
+      <div>
+        <label>
+          Name:
+          <br />
+          <input value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+      </div>
+      <button onClick={() => props?.onClose?.({ title, name })}>Close</button>
+    </div>
+  );
+}
+
+EditView.getConfig = () => {
+  return JSON.parse(window.localStorage.getItem("sign-config"));
+};
+
 pdfjsLib.GlobalWorkerOptions.workerSrc = "pdf.worker.mjs";
 export default function SignPDFPage() {
   const [mapping, setMapping] = useState({});
@@ -119,7 +173,12 @@ export default function SignPDFPage() {
   const [additions, setAdditions] = useState([]);
   const [selectedAdditionType, setSelectedAdditionType] = useState();
 
+  const [showEdit, setShowEdit] = useState(false);
+
+  const [config, setConfig] = useState();
+
   useEffect(() => {
+    setConfig(EditView.getConfig());
     window.grist.ready({
       requiredAccess: "full",
       columns: [
@@ -177,11 +236,27 @@ export default function SignPDFPage() {
     fetchDoc();
   }, [selectedFile]);
 
-  const texts = {
-    date: () => new Date().toLocaleDateString(),
-    signature: () => "Thomas GUILLET",
-    title: () => "Nobody\nNobody\nNobody",
+  const additionTypes = {
+    date: {
+      name: "Date",
+      text: () => new Date().toLocaleDateString(),
+    },
+    signature: {
+      name: "Signature",
+      text: () => config.name,
+    },
+    title: {
+      name: "Title",
+      text: () => config.title,
+    },
   };
+
+  const additionOptions = [
+    { name: "None" },
+    { value: "date", name: "Date" },
+    { value: "title", name: "Title" },
+    { value: "signature", name: "Signature" },
+  ];
 
   async function buildPdf() {
     const pdfDoc = await PDFDocument.load(inputPDF);
@@ -196,7 +271,8 @@ export default function SignPDFPage() {
       additionsByPage.map(async (pageAdditions, pageNumber) => {
         const pageToEdit = await pdfDoc.getPage(pageNumber);
         pageAdditions.forEach((addition) => {
-          const text = texts[addition.type]();
+          const meta = additionTypes[addition.type];
+          const text = meta.text();
           const font = timesRomanFont;
           const fontSize = 15;
           const { width, height } = pageToEdit.getSize();
@@ -258,13 +334,6 @@ export default function SignPDFPage() {
     ]);
   }
 
-  const additionOptions = [
-    { name: "None" },
-    { value: "date", name: "Date" },
-    { value: "title", name: "Title" },
-    { value: "signature", name: "Signature" },
-  ];
-
   function onClick({ pageNumber, x, y }) {
     if (!selectedAdditionType) {
       return;
@@ -298,7 +367,7 @@ export default function SignPDFPage() {
             </label>
           </div>
         ))}
-        <button>Edit</button>
+        <button onClick={() => setShowEdit(true)}>Edit</button>
         <div>Additions</div>
         {additions.map((a, i) => (
           <div key={[a.pageNumber, a.x, a.y].join("-")}>
@@ -309,7 +378,14 @@ export default function SignPDFPage() {
     );
   }
 
-  return (
+  function onCloseEdit(config) {
+    setConfig(config);
+    setShowEdit(false);
+  }
+
+  return showEdit ? (
+    <EditView onClose={onCloseEdit} />
+  ) : (
     <>
       <div>Select a file</div>
       <div>
@@ -343,7 +419,11 @@ export default function SignPDFPage() {
         </button>
       </div>
       <pre>
-        {JSON.stringify({ record, files, selectedFile, setMapping }, null, 2)}
+        {JSON.stringify(
+          { config, record, files, selectedFile, setMapping },
+          null,
+          2,
+        )}
       </pre>
     </>
   );
