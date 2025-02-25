@@ -122,7 +122,7 @@ export default function SignPDFPage() {
     let body = new FormData();
     body.append("upload", fileToSend);
 
-    const tokenInfo = await grist.docApi.getAccessToken();
+    const tokenInfo = await grist.docApi.getAccessToken({readOnly: false});
     const url = `${tokenInfo.baseUrl}/attachments?auth=${tokenInfo.token}`;
     const response = await fetch(url, {
       method: "POST",
