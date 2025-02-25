@@ -65,6 +65,13 @@ a {
 }
 
 canvas.page {
-  padding: 3em;
+  padding: 20px;
   background-color: lightgrey;
+}
+
+.addition-block {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 1em;
 }

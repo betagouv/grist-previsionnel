@@ -14,11 +14,25 @@ function DocumentViewer(props) {
     setPageCount(props.document.numPages);
   }, [props.document]);
 
+  function onClick({ pageNumber, e }) {
+    props?.onClick({ pageNumber, x: e.x, y: e.y });
+  }
+  function onMouseMove({ pageNumber, e }) {
+    props?.onMouseMove({ pageNumber, x: e.x, y: e.y });
+  }
+
   return (
     <>
       <div>
-        {[...Array(pageCount).keys()].map((i) => (
-          <PageCanvas key={i} document={props.document} pageNumber={i} />
+        {[...Array(pageCount).keys()].map((pageNumber) => (
+          <PageCanvas
+            key={pageNumber}
+            document={props.document}
+            pageNumber={pageNumber}
+            onClick={(e) => onClick({ pageNumber, e })}
+            onMouseMove={(e) => onMouseMove({ pageNumber, e })}
+            onMouseOut={() => props?.onMouseOut?.()}
+          />
         ))}
       </div>
     </>
@@ -28,8 +42,9 @@ function DocumentViewer(props) {
 function PageCanvas(props) {
   const canvasRef = useRef(null);
 
+  const paddingOffset = { x: 20, y: 20 };
+
   useEffect(() => {
-    console.log({ props });
     if (
       !canvasRef.current ||
       !props.document ||
@@ -53,10 +68,8 @@ function PageCanvas(props) {
       };
       var renderTask = page.render(renderContext);
       renderTask.promise.then(
-        function () {
-          console.log(`Page ${props.pageNumber} rendered`);
-        },
-        function (reason) {},
+        function () {},
+        function () {},
       );
       return renderTask;
     }
@@ -66,13 +79,34 @@ function PageCanvas(props) {
     };
   }, [canvasRef, props.document, props.pageNumber]);
 
+  function onClick(e) {
+    props?.onClick?.({
+      x: e.nativeEvent.offsetX - paddingOffset.x,
+      y: e.nativeEvent.offsetY - paddingOffset.y,
+    });
+  }
+
+  function onMouseMove(e) {
+    props?.onMouseMove?.({
+      x: e.nativeEvent.offsetX - paddingOffset.x,
+      y: e.nativeEvent.offsetY - paddingOffset.y,
+    });
+  }
+
   return (
     <div>
-      <canvas className="page" ref={canvasRef}></canvas>
+      <canvas
+        onClick={onClick}
+        onMouseMove={onMouseMove}
+        onMouseOut={() => props?.onMouseOut?.()}
+        className="page"
+        ref={canvasRef}
+      ></canvas>
     </div>
   );
 }
 
+pdfjsLib.GlobalWorkerOptions.workerSrc = "pdf.worker.mjs";
 export default function SignPDFPage() {
   const [mapping, setMapping] = useState({});
   const [record, setRecord] = useState();
@@ -80,9 +114,10 @@ export default function SignPDFPage() {
   const [selectedFile, setSelectedFile] = useState();
   const [inputPDF, setInputPDF] = useState();
   const [previewPDF, setPreviewPDF] = useState();
-  const [pageCount, setPageCount] = useState();
 
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "pdf.worker.mjs";
+  const [mouseMove, setMouseMove] = useState();
+  const [additions, setAdditions] = useState([]);
+  const [selectedAdditionType, setSelectedAdditionType] = useState();
 
   useEffect(() => {
     window.grist.ready({
@@ -101,6 +136,7 @@ export default function SignPDFPage() {
       setSelectedFile();
       setInputPDF();
       setPreviewPDF();
+      setAdditions([]);
 
       const attachmentIds = record[mapping[key]] || [];
 
@@ -118,6 +154,9 @@ export default function SignPDFPage() {
       );
 
       setFiles(data);
+      if (data.length == 1) {
+        setSelectedFile(data[0].id);
+      }
     });
   }, []);
 
@@ -138,19 +177,41 @@ export default function SignPDFPage() {
     fetchDoc();
   }, [selectedFile]);
 
+  const texts = {
+    date: () => new Date().toLocaleDateString(),
+    signature: () => "Thomas GUILLET",
+    title: () => "Nobody\nNobody\nNobody",
+  };
+
   async function buildPdf() {
     const pdfDoc = await PDFDocument.load(inputPDF);
     const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
 
-    const fontSize = 30;
-    const pageToEdit = await pdfDoc.getPage(0);
-    const { width, height } = pageToEdit.getSize();
-    pageToEdit.drawText("Update PDF in Grist is great!", {
-      x: 50,
-      y: height - 4 * fontSize,
-      size: fontSize,
-      font: timesRomanFont,
+    const additionsByPage = pdfDoc.getPages().map(() => []);
+    additions.forEach((addition) => {
+      additionsByPage[addition.pageNumber].push(addition);
     });
+
+    const done = await Promise.all(
+      additionsByPage.map(async (pageAdditions, pageNumber) => {
+        const pageToEdit = await pdfDoc.getPage(pageNumber);
+        pageAdditions.forEach((addition) => {
+          const text = texts[addition.type]();
+          const font = timesRomanFont;
+          const fontSize = 15;
+          const { width, height } = pageToEdit.getSize();
+          const lineHeight = font.heightAtSize(fontSize) * 1.5;
+          pageToEdit.drawText(text, {
+            x: addition.x,
+            y: height - addition.y - fontSize / 2,
+            size: fontSize,
+            lineHeight,
+            font,
+          });
+        });
+      }),
+    );
+
     return pdfDoc.save();
   }
 
@@ -165,7 +226,7 @@ export default function SignPDFPage() {
       setPreviewPDF(previewPDF);
     }
     buildPdfEffect();
-  }, [inputPDF]);
+  }, [inputPDF, additions]);
 
   async function postNew() {
     const f = files.find((f) => f.id == selectedFile);
@@ -197,6 +258,57 @@ export default function SignPDFPage() {
     ]);
   }
 
+  const additionOptions = [
+    { name: "None" },
+    { value: "date", name: "Date" },
+    { value: "title", name: "Title" },
+    { value: "signature", name: "Signature" },
+  ];
+
+  function onClick({ pageNumber, x, y }) {
+    if (!selectedAdditionType) {
+      return;
+    }
+    setMouseMove();
+    setAdditions([
+      ...additions,
+      { type: selectedAdditionType, pageNumber, x, y },
+    ]);
+  }
+
+  function onRemoveAddition(indexToDrop) {
+    setAdditions([...additions.filter((a, i) => i != indexToDrop)]);
+  }
+
+  function AdditionBlock() {
+    return (
+      <div className="addition-block">
+        <div>Addition</div>
+        {additionOptions.map((o) => (
+          <div key={o.value}>
+            <label>
+              <input
+                type="radio"
+                name="addition"
+                value={o.value}
+                checked={selectedAdditionType == o.value}
+                onChange={() => setSelectedAdditionType(o.value)}
+              />
+              {o.name}
+            </label>
+          </div>
+        ))}
+        <button>Edit</button>
+        <div>Additions</div>
+        {additions.map((a, i) => (
+          <div key={[a.pageNumber, a.x, a.y].join("-")}>
+            <button onClick={() => onRemoveAddition(i)}>Remove {a.type}</button>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <>
       <div>Select a file</div>
@@ -216,18 +328,22 @@ export default function SignPDFPage() {
           </div>
         ))}
       </div>
-      {previewPDF && <DocumentViewer document={previewPDF} />}
+      <AdditionBlock />
+      {previewPDF && (
+        <DocumentViewer
+          document={previewPDF}
+          onClick={onClick}
+          onMouseMove={setMouseMove}
+          onMouseOut={() => setMouseMove()}
+        />
+      )}
       <div>
         <button onClick={postNew} disabled={!previewPDF}>
           Create and add updated PDF
         </button>
       </div>
       <pre>
-        {JSON.stringify(
-          { pageCount, record, files, selectedFile, setMapping },
-          null,
-          2,
-        )}
+        {JSON.stringify({ record, files, selectedFile, setMapping }, null, 2)}
       </pre>
     </>
   );
