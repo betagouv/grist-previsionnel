@@ -2,241 +2,176 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import * as pdfjsLib from "pdfjs-dist";
 
+const key = "Piece_jointe";
+
 export default function SignPDFPage() {
+  const [mapping, setMapping] = useState({});
+  const [record, setRecord] = useState();
+  const [files, setFiles] = useState([]);
+  const [selectedFile, setSelectedFile] = useState();
   const [doc, setDoc] = useState();
-  const [pageCount, setPageCount] = useState(0);
-  const [pageNumber, setPageNumber] = useState(undefined);
-  const [clickEvent, setClickEvent] = useState(undefined);
-  const [result, setResult] = useState();
-  const [edit, setEdit] = useState(false)
-
-
-  const [options, setOptions] = useState()
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = "pdf.worker.mjs";
-  const url = "BRB-177 (EJ).pdf";
 
   useEffect(() => {
     window.grist.ready({
       requiredAccess: "full",
-      columns: [{
-        name: "Piece_jointe",
-        type: "Attachments"
-      }],
-      onEditOptions: function() {
-        setEdit(true)
-      }
-    })
-
-    window.grist.onRecord((record) => {
-      console.log({record});
-    });
-
-    window.grist.onOptions((options) => {
-      setOptions(options)
-    });
-
-  }, []);
-
-  useEffect(() => {
-    if (!options) {
-      return
-    }
-    if (options.signatures.length == 0) {
-      setEdit(true)
-    }
-  }, [options])
-
-
-  function EditView() {
-    const [text, setText] = useState("")
-    const [name, setName] = useState("")
-    const [selectedSignature, setSelectedSignature] = useState()
-
-    function removeSignature() {
-      const newSignatures = options.signatures.filter((v, i) => i != selectedSignature)
-      if (options.signatures.length != newSignatures.length) {
-        window.grist.setOption('signatures', newSignatures)
-      }
-    }
-
-    function addSignature() {
-      window.grist.setOption('signatures', [
-        ...(options?.signatures || []),
+      columns: [
         {
-        name,
-        text
-      }])
-    }
+          name: key,
+          type: "Attachments",
+        },
+      ],
+    });
 
-    return (<>
-      <div>
-        <label>Rôle</label>
-        <textarea rows={3} value={text} onChange={e => setText(e.target.value)} />
-        <label>Nom</label>
-        <input value={name} onChange={e => setName(e.target.value)} />
-        <button onClick={addSignature}>Ajouter une signature</button>
-      </div>
-      {options?.signatures?.length ?
-      <div>
-      selectedSignature {selectedSignature}
-      <SignatureSelect value={selectedSignature} onChange={setSelectedSignature} />
-      <button onClick={removeSignature}>Supprimer la signature</button>
-      </div> : <></>}
-      <button onClick={() => setEdit(false)}>Terminer</button>
-    </>
-    )
-  }
+    window.grist.onRecord(async (record, mapping) => {
+      setRecord(record);
+      setMapping(mapping);
+      setSelectedFile();
 
-  function SignatureSelect(props) {
-    return <select value={props.value} onChange={e => props?.onChange?.(e.target.value)}>
-      <option value="null">Sélectionnez une signature</option>
-        {options?.signatures?.map((s, i) => {
-          return <option key={s.name} value={i}>{s.name}</option>
-        })}
-      </select>
-  }
+      const attachmentIds = record[mapping[key]] || [];
 
-  return (edit ? <EditView /> :
-    <>
-      <SignatureSelect />
-    </>);
-
-/*
-  useEffect(() => {
-    async function fetchDoc() {
-      const existingPdfBytes = await fetch(url).then((res) =>
-        res.arrayBuffer(),
+      const tokenInfo = await grist.docApi.getAccessToken({ readOnly: true });
+      const data = await Promise.all(
+        attachmentIds.map(async (id) => {
+          const url = `${tokenInfo.baseUrl}/attachments/${id}?auth=${tokenInfo.token}`;
+          const response = await fetch(url);
+          const fields = await response.json();
+          return {
+            id,
+            fields,
+          };
+        }),
       );
 
-      setDoc(existingPdfBytes);
-      const pdfDoc = await PDFDocument.load(existingPdfBytes);
-      setPageCount(pdfDoc.getPageCount());
-      setPageNumber(0);
-    }
-    fetchDoc();
+      setFiles(data);
+    });
   }, []);
 
   useEffect(() => {
-    if (!doc || pageNumber === undefined) {
+    if (selectedFile === undefined) {
+      setDoc();
       return;
     }
-    updateDisplayedContent(clickEvent);
-  }, [doc, pageNumber, clickEvent, result]);
+    async function fetchDoc() {
+      const tokenInfo = await grist.docApi.getAccessToken({ readOnly: true });
+      const f = files.find((f) => f.id == selectedFile);
+      const contentUrl = `${tokenInfo.baseUrl}/attachments/${f.id}/download?auth=${tokenInfo.token}`;
+      const response = await fetch(contentUrl);
+      setDoc(await response.arrayBuffer());
+    }
+    fetchDoc();
+  }, [selectedFile]);
 
-  async function updateDisplayedContent(e) {
-    if (!doc || pageNumber === undefined) {
-      return;
-    }
+  async function buildPdf() {
     const pdfDoc = await PDFDocument.load(doc);
-    if (e) {
-      const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
-      const TimesRomanItalic = await pdfDoc.embedFont(StandardFonts.TimesRomanItalic);
-      const page = pdfDoc.getPage(pageNumber);
-      const { width, height } = page.getSize();
+    const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
 
-      const fontSize = 20;
-      const lineHeight = timesRomanFont.heightAtSize(fontSize)*1.5
-      page.drawText(text, {
-        x: e.pageX,
-        y: height - e.pageY - fontSize / 2, // - 4 * fontSize,
-        size: fontSize,
-        font: timesRomanFont,
-        lineHeight
-        });
-      page.drawText(name, {
-        x: e.pageX,
-        y: height - e.pageY - fontSize / 2 - 10 - lineHeight * text.split('\n').length,
-        size: fontSize,
-        font: TimesRomanItalic
-        });
+    const fontSize = 30;
+    const pageToEdit = await pdfDoc.getPage(0);
+    const { width, height } = pageToEdit.getSize();
+    pageToEdit.drawText("Update PDF in Grist is great!", {
+      x: 50,
+      y: height - 4 * fontSize,
+      size: fontSize,
+      font: timesRomanFont,
+    });
+    return pdfDoc.save();
+  }
+
+  useEffect(() => {
+    if (!doc) {
+      return;
     }
 
-    const pdfDataUri = await pdfDoc.save();
+    async function render() {
+      const data = await buildPdf();
+      const pdf = await pdfjsLib.getDocument({ data }).promise;
+      const page = await pdf.getPage(1);
+      var scale = 1;
+      var viewport = page.getViewport({ scale: scale });
 
-    if (result) {
-      const pdfDataUri = await pdfDoc.saveAsBase64({ dataUri: true });
-      document.getElementById("pdf").src = pdfDataUri;
+      var canvas = document.getElementById("the-canvas");
+      var canvasContext = canvas.getContext("2d");
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+
+      var renderContext = {
+        canvasContext,
+        viewport,
+      };
+      var renderTask = page.render(renderContext).promise;
+      renderTask.then(
+        function () {
+          console.log("Page rendered");
+        },
+        function (reason) {
+          // PDF loading error
+          console.error(reason);
+        },
+      );
     }
+    render();
+  }, [doc]);
 
-    var loadingTask = pdfjsLib.getDocument({ data: pdfDataUri });
-    const pdf = await loadingTask.promise
-    const page = await pdf.getPage(pageNumber + 1)
-    var scale = 1;
-    var viewport = page.getViewport({ scale: scale });
+  async function postNew() {
+    const f = files.find((f) => f.id == selectedFile);
+    const pdf = await buildPdf();
+    const suffixed_name = `${f.fields.fileName.slice(0, -4)}_signe.pdf`;
+    const fileToSend = new File([pdf], suffixed_name);
+    let body = new FormData();
+    body.append("upload", fileToSend);
 
-    var canvas = document.getElementById("the-canvas");
-    var context = canvas.getContext("2d");
-    canvas.height = viewport.height;
-    canvas.width = viewport.width;
-
-    // Render PDF page into canvas context
-    var renderContext = {
-      canvasContext: context,
-      viewport: viewport,
-    };
-    var renderTask = page.render(renderContext);
-    renderTask.promise.then(function () {
-        console.log("Page rendered");
+    const tokenInfo = await grist.docApi.getAccessToken();
+    const url = `${tokenInfo.baseUrl}/attachments?auth=${tokenInfo.token}`;
+    const response = await fetch(url, {
+      method: "POST",
+      body,
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
       },
-      function (reason) {
-        // PDF loading error
-        console.error(reason);
+    });
+    const newIds = await response.json();
+
+    const previousIds = record[mapping[key]];
+    window.grist.getTable().update([
+      {
+        id: record.id,
+        fields: {
+          [mapping[key]]: ["L", ...previousIds, ...newIds],
+        },
       },
-    );
-  }
-
-  function onMouseMove(e) {
-    console.log(e);
-  }
-
-  function onClick(e) {
-    setResult(false);
-    setClickEvent(e);
-  }
-
-  function updatePageNumber(shift) {
-    if (shift < 0) {
-      if (pageNumber == 0) {
-        return
-      }
-    }
-    if (shift > 0) {
-      if (pageNumber === pageCount - 1) {
-        return
-      }
-    }
-
-    setResult(false);
-    setPageNumber(pageNumber + shift)
-    setClickEvent()
-  }
-
-  function generateSignedDoc() {
-    setResult(true)
+    ]);
   }
 
   return (
     <>
+      <div>Select a file</div>
       <div>
-        <div>
-          <button disabled={pageNumber === 0} onClick={() => updatePageNumber(-1)}>
-            Page précédente
-          </button>
-          <button disabled={pageNumber === pageCount - 1} onClick={() => updatePageNumber(1)}>
-            Page suivante
-          </button>
-          {clickEvent ? <>
-            <span>{clickEvent?.pageX} / {clickEvent?.pageY}</span>
-            <button onClick={generateSignedDoc}>Valider</button>
-            </> : <></>}
-        </div>
-        <canvas
-          onMouseMove={onMouseMove}
-          onClick={onClick}
-          id="the-canvas"
-        ></canvas>
+        {files.map((file) => (
+          <div key={file.id}>
+            <label>
+              <input
+                onChange={() => setSelectedFile(file.id)}
+                type="radio"
+                name="file"
+                value={file.id}
+                checked={selectedFile === file.id}
+              />
+              {file.fields.fileName}
+            </label>
+          </div>
+        ))}
       </div>
+      {doc && <canvas id="the-canvas"></canvas>}
+      <div>
+        <button onClick={postNew} disabled={!doc}>
+          Create and add updated PDF
+        </button>
+      </div>
+      <pre>
+        {JSON.stringify({ record, files, selectedFile, setMapping }, null, 2)}
+      </pre>
     </>
-  );//*/
+  );
 }

@@ -4,8 +4,10 @@ import * as pdfjsLib from "pdfjs-dist";
 
 export default function SignPDFPage() {
   const [doc, setDoc] = useState();
-  const [text, setText] = useState("Jennifer STEPHAN\nresponsable Ruche numérique\nSG/SNUM")
-  const [name, setName] = useState("Jennifer STEPHAN")
+  const [text, setText] = useState(
+    "Jennifer STEPHAN\nresponsable Ruche numérique\nSG/SNUM",
+  );
+  const [name, setName] = useState("Jennifer STEPHAN");
   const [pageCount, setPageCount] = useState(0);
   const [pageNumber, setPageNumber] = useState(undefined);
   const [clickEvent, setClickEvent] = useState(undefined);
@@ -42,25 +44,32 @@ export default function SignPDFPage() {
     const pdfDoc = await PDFDocument.load(doc);
     if (e) {
       const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
-      const TimesRomanItalic = await pdfDoc.embedFont(StandardFonts.TimesRomanItalic);
+      const TimesRomanItalic = await pdfDoc.embedFont(
+        StandardFonts.TimesRomanItalic,
+      );
       const page = pdfDoc.getPage(pageNumber);
       const { width, height } = page.getSize();
 
       const fontSize = 20;
-      const lineHeight = timesRomanFont.heightAtSize(fontSize)*1.5
+      const lineHeight = timesRomanFont.heightAtSize(fontSize) * 1.5;
       page.drawText(text, {
         x: e.pageX,
         y: height - e.pageY - fontSize / 2, // - 4 * fontSize,
         size: fontSize,
         font: timesRomanFont,
-        lineHeight
-        });
+        lineHeight,
+      });
       page.drawText(name, {
         x: e.pageX,
-        y: height - e.pageY - fontSize / 2 - 10 - lineHeight * text.split('\n').length,
+        y:
+          height -
+          e.pageY -
+          fontSize / 2 -
+          10 -
+          lineHeight * text.split("\n").length,
         size: fontSize,
-        font: TimesRomanItalic
-        });
+        font: TimesRomanItalic,
+      });
     }
 
     const pdfDataUri = await pdfDoc.save();
@@ -69,10 +78,8 @@ export default function SignPDFPage() {
       const pdfDataUri = await pdfDoc.saveAsBase64({ dataUri: true });
       document.getElementById("pdf").src = pdfDataUri;
     }
-
-    var loadingTask = pdfjsLib.getDocument({ data: pdfDataUri });
-    const pdf = await loadingTask.promise
-    const page = await pdf.getPage(pageNumber + 1)
+    const pdf = await pdfjsLib.getDocument({ data: pdfDataUri }).promise;
+    const page = await pdf.getPage(pageNumber + 1);
     var scale = 1;
     var viewport = page.getViewport({ scale: scale });
 
@@ -86,8 +93,9 @@ export default function SignPDFPage() {
       canvasContext: context,
       viewport: viewport,
     };
-    var renderTask = page.render(renderContext);
-    renderTask.promise.then(function () {
+    var renderTask = page.render(renderContext).promise;
+    renderTask.then(
+      function () {
         console.log("Page rendered");
       },
       function (reason) {
@@ -109,45 +117,59 @@ export default function SignPDFPage() {
   function updatePageNumber(shift) {
     if (shift < 0) {
       if (pageNumber == 0) {
-        return
+        return;
       }
     }
     if (shift > 0) {
       if (pageNumber === pageCount - 1) {
-        return
+        return;
       }
     }
 
     setResult(false);
-    setPageNumber(pageNumber + shift)
-    setClickEvent()
+    setPageNumber(pageNumber + shift);
+    setClickEvent();
   }
 
   function generateSignedDoc() {
-    setResult(true)
+    setResult(true);
   }
 
   return (
     <>
       <div className="h80p">
         <div>
-          <button disabled={pageNumber === 0} onClick={() => updatePageNumber(-1)}>
+          <button
+            disabled={pageNumber === 0}
+            onClick={() => updatePageNumber(-1)}
+          >
             Page précédente
           </button>
-          <button disabled={pageNumber === pageCount - 1} onClick={() => updatePageNumber(1)}>
+          <button
+            disabled={pageNumber === pageCount - 1}
+            onClick={() => updatePageNumber(1)}
+          >
             Page suivante
           </button>
-          {clickEvent ? <>
-            <span>{clickEvent?.pageX} / {clickEvent?.pageY}</span>
-            <button onClick={generateSignedDoc}>Valider</button>
-            </> : <></>}
+          {clickEvent ? (
+            <>
+              <span>
+                {clickEvent?.pageX} / {clickEvent?.pageY}
+              </span>
+              <button onClick={generateSignedDoc}>Valider</button>
+            </>
+          ) : (
+            <></>
+          )}
         </div>
         <canvas
           onMouseMove={onMouseMove}
           onClick={onClick}
           id="the-canvas"
         ></canvas>
-        { result && <iframe id="pdf" style={{ width: "100%", height: "100%" }}></iframe>}
+        {result && (
+          <iframe id="pdf" style={{ width: "100%", height: "100%" }}></iframe>
+        )}
       </div>
     </>
   );
