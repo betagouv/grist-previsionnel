@@ -1,15 +1,86 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, StrictMode } from "react";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import * as pdfjsLib from "pdfjs-dist";
 
 const key = "Piece_jointe";
+
+function DocumentViewer(props) {
+  const [pageCount, setPageCount] = useState();
+  useEffect(() => {
+    if (!props.document) {
+      setPageCount();
+    }
+
+    setPageCount(props.document.numPages);
+  }, [props.document]);
+
+  return (
+    <>
+      <div>
+        {[...Array(pageCount).keys()].map((i) => (
+          <PageCanvas key={i} document={props.document} pageNumber={i} />
+        ))}
+      </div>
+    </>
+  );
+}
+
+function PageCanvas(props) {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    console.log({ props });
+    if (
+      !canvasRef.current ||
+      !props.document ||
+      props.pageNumber === undefined
+    ) {
+      return;
+    }
+    async function render() {
+      const page = await props.document.getPage(props.pageNumber + 1);
+      var scale = 1;
+      var viewport = page.getViewport({ scale: scale });
+
+      var canvas = canvasRef.current;
+      var canvasContext = canvas.getContext("2d");
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+
+      var renderContext = {
+        canvasContext,
+        viewport,
+      };
+      var renderTask = page.render(renderContext);
+      renderTask.promise.then(
+        function () {
+          console.log(`Page ${props.pageNumber} rendered`);
+        },
+        function (reason) {},
+      );
+      return renderTask;
+    }
+    const promise = render();
+    return () => {
+      promise.then((task) => task.cancel());
+    };
+  }, [canvasRef, props.document, props.pageNumber]);
+
+  return (
+    <div>
+      <canvas className="page" ref={canvasRef}></canvas>
+    </div>
+  );
+}
 
 export default function SignPDFPage() {
   const [mapping, setMapping] = useState({});
   const [record, setRecord] = useState();
   const [files, setFiles] = useState([]);
   const [selectedFile, setSelectedFile] = useState();
-  const [doc, setDoc] = useState();
+  const [inputPDF, setInputPDF] = useState();
+  const [previewPDF, setPreviewPDF] = useState();
+  const [pageCount, setPageCount] = useState();
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = "pdf.worker.mjs";
 
@@ -28,6 +99,8 @@ export default function SignPDFPage() {
       setRecord(record);
       setMapping(mapping);
       setSelectedFile();
+      setInputPDF();
+      setPreviewPDF();
 
       const attachmentIds = record[mapping[key]] || [];
 
@@ -50,7 +123,7 @@ export default function SignPDFPage() {
 
   useEffect(() => {
     if (selectedFile === undefined) {
-      setDoc();
+      setInputPDF();
       return;
     }
     async function fetchDoc() {
@@ -58,13 +131,15 @@ export default function SignPDFPage() {
       const f = files.find((f) => f.id == selectedFile);
       const contentUrl = `${tokenInfo.baseUrl}/attachments/${f.id}/download?auth=${tokenInfo.token}`;
       const response = await fetch(contentUrl);
-      setDoc(await response.arrayBuffer());
+
+      const buffer = await response.arrayBuffer();
+      setInputPDF(buffer);
     }
     fetchDoc();
   }, [selectedFile]);
 
   async function buildPdf() {
-    const pdfDoc = await PDFDocument.load(doc);
+    const pdfDoc = await PDFDocument.load(inputPDF);
     const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
 
     const fontSize = 30;
@@ -80,39 +155,17 @@ export default function SignPDFPage() {
   }
 
   useEffect(() => {
-    if (!doc) {
+    if (!inputPDF) {
       return;
     }
 
-    async function render() {
+    async function buildPdfEffect() {
       const data = await buildPdf();
-      const pdf = await pdfjsLib.getDocument({ data }).promise;
-      const page = await pdf.getPage(1);
-      var scale = 1;
-      var viewport = page.getViewport({ scale: scale });
-
-      var canvas = document.getElementById("the-canvas");
-      var canvasContext = canvas.getContext("2d");
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
-
-      var renderContext = {
-        canvasContext,
-        viewport,
-      };
-      var renderTask = page.render(renderContext).promise;
-      renderTask.then(
-        function () {
-          console.log("Page rendered");
-        },
-        function (reason) {
-          // PDF loading error
-          console.error(reason);
-        },
-      );
+      const previewPDF = await pdfjsLib.getDocument({ data }).promise;
+      setPreviewPDF(previewPDF);
     }
-    render();
-  }, [doc]);
+    buildPdfEffect();
+  }, [inputPDF]);
 
   async function postNew() {
     const f = files.find((f) => f.id == selectedFile);
@@ -122,7 +175,7 @@ export default function SignPDFPage() {
     let body = new FormData();
     body.append("upload", fileToSend);
 
-    const tokenInfo = await grist.docApi.getAccessToken({readOnly: false});
+    const tokenInfo = await grist.docApi.getAccessToken({ readOnly: false });
     const url = `${tokenInfo.baseUrl}/attachments?auth=${tokenInfo.token}`;
     const response = await fetch(url, {
       method: "POST",
@@ -163,14 +216,18 @@ export default function SignPDFPage() {
           </div>
         ))}
       </div>
-      {doc && <canvas id="the-canvas"></canvas>}
+      {previewPDF && <DocumentViewer document={previewPDF} />}
       <div>
-        <button onClick={postNew} disabled={!doc}>
+        <button onClick={postNew} disabled={!previewPDF}>
           Create and add updated PDF
         </button>
       </div>
       <pre>
-        {JSON.stringify({ record, files, selectedFile, setMapping }, null, 2)}
+        {JSON.stringify(
+          { pageCount, record, files, selectedFile, setMapping },
+          null,
+          2,
+        )}
       </pre>
     </>
   );

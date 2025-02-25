@@ -63,3 +63,8 @@ a {
 .h80p {
   height: 80%;
 }
+
+canvas.page {
+  padding: 3em;
+  background-color: lightgrey;
+}
