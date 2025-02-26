@@ -1,40 +1,27 @@
+Ce dépôt contient des [custom widgets](https://support.getgrist.com/widget-custom/) de Grist pour outiller la gestion budgétaire de la Ruche Numérique.
+
+## Widget~~s~~ réutilisable~~s~~
+
+- https://betagouv.github.io/grist-previsionnel/signer-pdf permet la signature de PDF directement dans grist. Les documents sont ajoutés dans la même colonne.
+
+## Widgets dédiés
+
+- https://betagouv.github.io/grist-previsionnel/ permet la visualisation et l'édition d'un prévisionnel. C'est un custom widget complètement lié à la structure du Grist de la Ruche. Ce n'est pas réutilisable en tant que tel mais cela peut être une source d'inspiration. L'objectif de ce widget c'est d'avoir une vue : un mois par colonne et une ligne par personne intervenante.
+
+- https://betagouv.github.io/grist-previsionnel/decouper-conso permet de subdiviser une conso mensuelle en deux pour solder un bon de commande.
+
+- https://betagouv.github.io/grist-previsionnel/duplication-previsionnel permet de dupliquer un prévisionnel avec toutes les lignes de « dépenses prévisionnelles » associées.
+
+- https://betagouv.github.io/grist-previsionnel/chordee est une expérimentation pour gérer Chordée comme source de vérité alternative.
+
+# Compléments techniques
+
+## Documentation Next.js
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
 
-## Getting Started
-
-First, run the development server:
+### Getting Started
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `pages/index.js`. The page auto-updates as you edit the file.
-
-[API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.js`.
-
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) instead of React pages.
-
-This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn-pages-router) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
