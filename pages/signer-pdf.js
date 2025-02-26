@@ -253,9 +253,14 @@ export default function SignPDFPage() {
 
   const additionOptions = [
     { name: "None" },
-    { value: "date", name: "Date" },
-    { value: "title", name: "Title" },
-    { value: "signature", name: "Signature" },
+    ...[
+      Object.keys(additionTypes).map((additionType) => {
+        return {
+          value: additionType,
+          name: additionTypes[additionType].name,
+        };
+      }),
+    ],
   ];
 
   async function buildPdf() {
