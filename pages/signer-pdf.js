@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, StrictMode } from "react";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import * as pdfjsLib from "pdfjs-dist";
 
+import Debug from "../components/debug.js";
 const key = "Piece_jointe";
 
 function DocumentViewer(props) {
@@ -423,13 +424,7 @@ export default function SignPDFPage() {
           Create and add updated PDF
         </button>
       </div>
-      <pre>
-        {JSON.stringify(
-          { config, record, files, selectedFile, setMapping },
-          null,
-          2,
-        )}
-      </pre>
+      <Debug data={{ config, record, files, selectedFile, setMapping }} />
     </>
   );
 }
