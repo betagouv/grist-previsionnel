@@ -369,7 +369,7 @@ export default function SignPDFPage() {
       <div className="addition-block">
         <div>Addition</div>
         {additionOptions.map((o) => (
-          <div key={o.value}>
+          <div key={o.value || o.name}>
             <label>
               <input
                 type="radio"
