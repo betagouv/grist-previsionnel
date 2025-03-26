@@ -9,7 +9,7 @@ function Debug(props) {
           <input
             type="checkbox"
             checked={show}
-            onInput={() => setShow(!show)}
+            onChange={() => setShow(!show)}
           />
           Show technical details
         </label>
