@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState, StrictMode } from "react";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import * as pdfjsLib from "pdfjs-dist";
+
+import * as pdfjsLibLatest from "pdfjs-dist";
+import * as pdfjsLibLegacy from "pdfjs-dist/legacy/build/pdf.mjs";
+
+pdfjsLibLatest.GlobalWorkerOptions.workerSrc = "pdf.worker.mjs";
+pdfjsLibLegacy.GlobalWorkerOptions.workerSrc = "pdf.worker.legacy.mjs";
 
 import Debug from "../components/debug.js";
 const key = "Piece_jointe";
@@ -41,6 +46,12 @@ function DocumentViewer(props) {
 }
 
 function PageCanvas(props) {
+  const useLegacy = !!navigator.userAgent.match("Firefox/115");
+  const pdfjsLib = useLegacy ? pdfjsLibLegacy : pdfjsLibLatest;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = useLegacy
+    ? "pdf.worker.legacy.mjs"
+    : "pdf.worker.mjs";
+
   const canvasRef = useRef(null);
 
   const paddingOffset = { x: 20, y: 20 };
@@ -161,7 +172,6 @@ EditView.getConfig = () => {
   return JSON.parse(window.localStorage.getItem("sign-config"));
 };
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = "pdf.worker.mjs";
 export default function SignPDFPage() {
   const [mapping, setMapping] = useState({});
   const [record, setRecord] = useState();
@@ -365,8 +375,8 @@ export default function SignPDFPage() {
                 type="radio"
                 name="addition"
                 value={o.value}
-                checked={selectedAdditionType == o.value}
                 onChange={() => setSelectedAdditionType(o.value)}
+                checked={selectedAdditionType == o.value}
               />
               {o.name}
             </label>
