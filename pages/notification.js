@@ -40,6 +40,10 @@ export default function MessagePage() {
     setNewInChargeIndexes([]);
     setDone(true);
 
+    if (!newInChargeIndexes.length) {
+      return;
+    }
+
     const notifs = window.grist.getTable("Notifications");
     await notifs.create({
       fields: {
@@ -117,6 +121,11 @@ export default function MessagePage() {
       <div>
         <button onClick={add} disabled={newInChargeIndexes.length == 0}>
           Mettre à jour & notifier par email
+        </button>
+      </div>
+      <div>
+        <button onClick={add} disabled={newInChargeIndexes.length != 0}>
+          Enlever toutes les personnes en charge
         </button>
       </div>
     </>
