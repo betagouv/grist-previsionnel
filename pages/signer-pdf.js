@@ -1,176 +1,14 @@
+"use client";
 import { useCallback, useEffect, useRef, useState, StrictMode } from "react";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-
-import * as pdfjsLibLatest from "pdfjs-dist";
-import * as pdfjsLibLegacy from "pdfjs-dist/legacy/build/pdf.mjs";
-
-pdfjsLibLatest.GlobalWorkerOptions.workerSrc = "pdf.worker.mjs";
-pdfjsLibLegacy.GlobalWorkerOptions.workerSrc = "pdf.worker.legacy.mjs";
+import { PDFDocument, StandardFonts } from "pdf-lib";
 
 import Debug from "../components/debug.js";
+import DocumentViewer from "../components/document-viewer.js";
+import EditView from "../components/edit-view.js";
+import additionTypes from "../lib/addition-types.js";
+import AdditionBlock from "../components/addition-block.js";
+
 const key = "Piece_jointe";
-
-function DocumentViewer(props) {
-  const [pageCount, setPageCount] = useState();
-  useEffect(() => {
-    if (!props.document) {
-      setPageCount();
-    }
-
-    setPageCount(props.document.numPages);
-  }, [props.document]);
-
-  function onClick({ pageNumber, e }) {
-    props?.onClick({ pageNumber, x: e.x, y: e.y });
-  }
-  function onMouseMove({ pageNumber, e }) {
-    props?.onMouseMove({ pageNumber, x: e.x, y: e.y });
-  }
-
-  return (
-    <>
-      <div>
-        {[...Array(pageCount).keys()].map((pageNumber) => (
-          <PageCanvas
-            key={pageNumber}
-            document={props.document}
-            pageNumber={pageNumber}
-            onClick={(e) => onClick({ pageNumber, e })}
-            onMouseMove={(e) => onMouseMove({ pageNumber, e })}
-            onMouseOut={() => props?.onMouseOut?.()}
-          />
-        ))}
-      </div>
-    </>
-  );
-}
-
-function PageCanvas(props) {
-  const useLegacy = !!navigator.userAgent.match("Firefox/115");
-  const pdfjsLib = useLegacy ? pdfjsLibLegacy : pdfjsLibLatest;
-  pdfjsLib.GlobalWorkerOptions.workerSrc = useLegacy
-    ? "pdf.worker.legacy.mjs"
-    : "pdf.worker.mjs";
-
-  const canvasRef = useRef(null);
-
-  const paddingOffset = { x: 20, y: 20 };
-
-  useEffect(() => {
-    if (
-      !canvasRef.current ||
-      !props.document ||
-      props.pageNumber === undefined
-    ) {
-      return;
-    }
-    async function render() {
-      const page = await props.document.getPage(props.pageNumber + 1);
-      var scale = 1;
-      var viewport = page.getViewport({ scale: scale });
-
-      var canvas = canvasRef.current;
-      var canvasContext = canvas.getContext("2d");
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
-
-      var renderContext = {
-        canvasContext,
-        viewport,
-      };
-      var renderTask = page.render(renderContext);
-      renderTask.promise.then(
-        function () {},
-        function () {},
-      );
-      return renderTask;
-    }
-    const promise = render();
-    return () => {
-      promise.then((task) => task.cancel());
-    };
-  }, [canvasRef, props.document, props.pageNumber]);
-
-  function onClick(e) {
-    props?.onClick?.({
-      x: e.nativeEvent.offsetX - paddingOffset.x,
-      y: e.nativeEvent.offsetY - paddingOffset.y,
-    });
-  }
-
-  function onMouseMove(e) {
-    props?.onMouseMove?.({
-      x: e.nativeEvent.offsetX - paddingOffset.x,
-      y: e.nativeEvent.offsetY - paddingOffset.y,
-    });
-  }
-
-  return (
-    <div>
-      <canvas
-        onClick={onClick}
-        onMouseMove={onMouseMove}
-        onMouseOut={() => props?.onMouseOut?.()}
-        className="page"
-        ref={canvasRef}
-      ></canvas>
-    </div>
-  );
-}
-
-function EditView(props) {
-  const [title, setTitle] = useState("");
-  const [name, setName] = useState("");
-  const [init, setInit] = useState(false);
-
-  useEffect(() => {
-    const config = EditView.getConfig();
-    if (config) {
-      setTitle(config.title);
-      setName(config.name);
-    }
-    setInit(true);
-  }, []);
-
-  useEffect(() => {
-    if (!init) {
-      return;
-    }
-    const config = {
-      title,
-      name,
-    };
-    window.localStorage.setItem("sign-config", JSON.stringify(config));
-  }, [title, name]);
-
-  return (
-    <div>
-      <div>
-        <label>
-          Title:
-          <br />
-          <textarea
-            rows={3}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-        </label>{" "}
-      </div>
-      <div>
-        <label>
-          Name:
-          <br />
-          <input value={name} onChange={(e) => setName(e.target.value)} />
-        </label>
-      </div>
-      <button onClick={() => props?.onClose?.({ title, name })}>Close</button>
-    </div>
-  );
-}
-
-EditView.getConfig = () => {
-  return JSON.parse(window.localStorage.getItem("sign-config"));
-};
 
 export default function SignPDFPage() {
   const [mapping, setMapping] = useState({});
@@ -247,32 +85,6 @@ export default function SignPDFPage() {
     fetchDoc();
   }, [selectedFile]);
 
-  const additionTypes = {
-    date: {
-      name: "Date",
-      text: () => new Date().toLocaleDateString(),
-    },
-    signature: {
-      name: "Signature",
-      text: () => config.name,
-    },
-    title: {
-      name: "Title",
-      text: () => config.title,
-    },
-  };
-
-  const additionOptions = [
-    { name: "None" },
-    ...Object.keys(additionTypes).map((additionType) => {
-      return {
-        value: additionType,
-        name: additionTypes[additionType].name,
-      };
-    }),
-    ,
-  ];
-
   async function buildPdf() {
     const pdfDoc = await PDFDocument.load(inputPDF);
     const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
@@ -287,7 +99,7 @@ export default function SignPDFPage() {
         const pageToEdit = await pdfDoc.getPage(pageNumber);
         pageAdditions.forEach((addition) => {
           const meta = additionTypes[addition.type];
-          const text = meta.text();
+          const text = meta.text(config);
           const font = timesRomanFont;
           const fontSize = 15;
           const { width, height } = pageToEdit.getSize();
@@ -364,35 +176,6 @@ export default function SignPDFPage() {
     setAdditions([...additions.filter((a, i) => i != indexToDrop)]);
   }
 
-  function AdditionBlock() {
-    return (
-      <div className="addition-block">
-        <div>Addition</div>
-        {additionOptions.map((o) => (
-          <div key={o.value || o.name}>
-            <label>
-              <input
-                type="radio"
-                name="addition"
-                value={o.value}
-                onChange={() => setSelectedAdditionType(o.value)}
-                checked={selectedAdditionType == o.value}
-              />
-              {o.name}
-            </label>
-          </div>
-        ))}
-        <button onClick={() => setShowEdit(true)}>Edit</button>
-        <div>Additions</div>
-        {additions.map((a, i) => (
-          <div key={[a.pageNumber, a.x, a.y].join("-")}>
-            <button onClick={() => onRemoveAddition(i)}>Remove {a.type}</button>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
   function onCloseEdit(config) {
     setConfig(config);
     setShowEdit(false);
@@ -419,7 +202,13 @@ export default function SignPDFPage() {
           </div>
         ))}
       </div>
-      <AdditionBlock />
+      <AdditionBlock
+        selectedAdditionType={selectedAdditionType}
+        setSelectedAdditionType={setSelectedAdditionType}
+        setShowEdit={setShowEdit}
+        additions={additions}
+        onRemoveAddition={onRemoveAddition}
+      />
       {previewPDF && (
         <DocumentViewer
           document={previewPDF}
