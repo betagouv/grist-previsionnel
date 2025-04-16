@@ -170,7 +170,8 @@ export default function PreviewPage() {
           };
         }
         const mm = Object.keys(rowDetails.values);
-        const p = rowDetails.values[mm[0]][0].ProchainContrat.rowIds[0];
+        const firstConso = rowDetails.values[mm[0]][0];
+        const p = firstConso.ProchainContrat.rowIds[0];
         const m = months[column - 1].id;
         return {
           fields: {
