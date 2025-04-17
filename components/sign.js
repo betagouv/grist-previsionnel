@@ -40,10 +40,9 @@ export default function SignPDFPage(props) {
         const pageToEdit = await pdfDoc.getPage(pageNumber);
         return await Promise.all(
           pageAdditions.map(async (addition) => {
-            const meta = additionTypes[addition.type];
 
             const { width, height } = pageToEdit.getSize();
-            if (meta.type == "signature") {
+            if (addition.type == "signature") {
               const raw = localStorage.getItem("signature");
               const signatureBlob = await fetch(raw);
               const pngImageBytes = await signatureBlob.arrayBuffer();
@@ -57,6 +56,7 @@ export default function SignPDFPage(props) {
                 width: pngDims.width / 2,
               });
             } else {
+              const meta = additionTypes[addition.type];
               const text = meta.text(config);
               const font = timesRomanFont;
               const fontSize = 15;
