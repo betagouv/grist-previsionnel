@@ -15,5 +15,17 @@ export default function TestPage() {
     get();
   }, []);
 
-  return <SignPDFComponent inputPDF={inputPDF} />;
+  async function postNewT(event) {
+    setInputPDF(await new Blob([event]).arrayBuffer());
+  }
+
+  async function postNew(event) {
+    var link = document.createElement("a");
+    link.download = "doc_signed.pdf";
+    const b = new Blob([event]);
+    link.href = URL.createObjectURL(b);
+    link.click();
+  }
+
+  return <SignPDFComponent inputPDF={inputPDF} postNew={postNew} />;
 }

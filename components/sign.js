@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 
@@ -25,14 +25,10 @@ export default function SignPDFPage(props) {
     setConfig(EditView.getConfig());
   }, []);
 
-  async function buildPdf() {
+  async function buildPdf(additions) {
     const pdfDoc = await PDFDocument.load(inputPDF);
     pdfDoc.registerFontkit(fontkit);
     const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
-
-    const fontUrl = "ShadowsIntoLight-Regular.ttf";
-    const fontBytes = await fetch(fontUrl).then((res) => res.arrayBuffer());
-    const handWritingFont = await pdfDoc.embedFont(fontBytes);
 
     const additionsByPage = pdfDoc.getPages().map(() => []);
     additions.forEach((addition) => {
@@ -42,21 +38,40 @@ export default function SignPDFPage(props) {
     const done = await Promise.all(
       additionsByPage.map(async (pageAdditions, pageNumber) => {
         const pageToEdit = await pdfDoc.getPage(pageNumber);
-        pageAdditions.forEach((addition) => {
-          const meta = additionTypes[addition.type];
-          const text = meta.text(config);
-          const font = meta.writing ? handWritingFont : timesRomanFont;
-          const fontSize = 15;
-          const { width, height } = pageToEdit.getSize();
-          const lineHeight = font.heightAtSize(fontSize) * 1.5;
-          pageToEdit.drawText(text, {
-            x: addition.x,
-            y: height - addition.y - fontSize / 2,
-            size: fontSize,
-            lineHeight,
-            font,
-          });
-        });
+        return await Promise.all(
+          pageAdditions.map(async (addition) => {
+            const meta = additionTypes[addition.type];
+
+            const { width, height } = pageToEdit.getSize();
+            if (meta.type == "signature") {
+              const raw = localStorage.getItem("signature");
+              const signatureBlob = await fetch(raw);
+              const pngImageBytes = await signatureBlob.arrayBuffer();
+              const pngImage = await pdfDoc.embedPng(pngImageBytes);
+              const pngDims = pngImage.scale(1);
+
+              pageToEdit.drawImage(pngImage, {
+                x: addition.x,
+                y: height - addition.y - pngDims.height / 2,
+                height: pngDims.height / 2,
+                width: pngDims.width / 2,
+              });
+            } else {
+              const text = meta.text(config);
+              const font = timesRomanFont;
+              const fontSize = 15;
+              const lineHeight = font.heightAtSize(fontSize) * 1.5;
+
+              pageToEdit.drawText(text, {
+                x: addition.x,
+                y: height - addition.y - font.heightAtSize(fontSize),
+                size: fontSize,
+                lineHeight,
+                font,
+              });
+            }
+          }),
+        );
       }),
     );
 
@@ -64,25 +79,22 @@ export default function SignPDFPage(props) {
   }
 
   useEffect(() => {
-    if (!inputPDF) {
+    if (!inputPDF || !config) {
       setPreviewPDF();
-      if (additions.length) {
-        setAdditions([]);
-      }
       return;
     }
 
     async function buildPdfEffect() {
-      const data = await buildPdf();
+      const data = await buildPdf([]);
       const previewPDF = await pdfjsLib.getDocument({ data }).promise;
       setPreviewPDF(previewPDF);
     }
     buildPdfEffect();
-  }, [inputPDF, additions]);
+  }, [inputPDF, config]);
 
   async function postNew() {
     if (props.postNew) {
-      const pdf = await buildPdf();
+      const pdf = await buildPdf(additions);
       props.postNew(pdf);
     }
   }
@@ -110,28 +122,31 @@ export default function SignPDFPage(props) {
   return showEdit ? (
     <EditView onClose={onCloseEdit} />
   ) : (
-    <>
-      {props?.children}
-      <AdditionBlock
-        selectedAdditionType={selectedAdditionType}
-        setSelectedAdditionType={setSelectedAdditionType}
-        setShowEdit={setShowEdit}
-        additions={additions}
-        onRemoveAddition={onRemoveAddition}
-      />
+    <div className="sign-view">
+      <div>
+        {props?.children}
+        <AdditionBlock
+          selectedAdditionType={selectedAdditionType}
+          setSelectedAdditionType={setSelectedAdditionType}
+          setShowEdit={setShowEdit}
+          additions={additions}
+          onRemoveAddition={onRemoveAddition}
+        >
+          <button className="submit" onClick={postNew} disabled={!previewPDF}>
+            Create and add updated PDF
+          </button>
+        </AdditionBlock>
+      </div>
       {previewPDF && (
         <DocumentViewer
           document={previewPDF}
+          config={config}
+          additions={additions}
           onClick={onClick}
           onMouseMove={setMouseMove}
           onMouseOut={() => setMouseMove()}
         />
       )}
-      <div>
-        <button onClick={postNew} disabled={!previewPDF}>
-          Create and add updated PDF
-        </button>
-      </div>
-    </>
+    </div>
   );
 }

@@ -64,14 +64,47 @@ a {
   height: 80%;
 }
 
-canvas.page {
+div.page {
+  display: grid;
+  grid-template: 1fr / 1fr;
+}
+
+canvas.page-background,
+.konva-container {
   padding: 20px;
+  grid-column: 1 / 1;
+  grid-row: 1 / 1;
+}
+
+canvas.page-background {
   background-color: lightgrey;
 }
 
+.konva-container {
+  background-color: #ff000000;
+}
+
 .addition-block {
-  position: absolute;
-  top: 0;
-  right: 0;
+  position: sticky;
+  top: 10px;
+  left: 10px;
+}
+
+fieldset {
+  padding: 0.3em;
+  border-radius: 5px;
+}
+
+.addition-block button,
+button.submit {
+  padding: 0.3em;
+  margin: 0.1em;
+}
+
+.sign-view {
+  display: flex;
+}
+
+.sign-view > * {
   padding: 1em;
 }
