@@ -20,7 +20,6 @@ function AdditionBlock({
 
   return (
     <div className="addition-block">
-      <div>{children}</div>
       <div>Addition</div>
       {additionOptions.map((o) => (
         <div key={o.value || o.name}>
@@ -39,12 +38,14 @@ function AdditionBlock({
       <button onClick={() => setShowEdit(true)}>Edit</button>
       <div>Additions</div>
       {additions.map((a, i) => (
-        <div key={[a.pageNumber, a.x, a.y].join("-")}>
+        <div key={[a.pageNumber, a.x, a.y, a.pageNumber].join("-")}>
           <button onClick={() => onRemoveAddition(i)}>
-            Remove {a.type} {a.x} {a.y}
+            Remove {a.type} {a.x} {a.y} {a.pageNumber}
           </button>
         </div>
       ))}
+      <div>Finish</div>
+      <div>{children}</div>
     </div>
   );
 }

@@ -20,18 +20,20 @@ function DocumentViewer(props) {
   }
 
   return (
-    <>
+    <div>
       {[...Array(pageCount).keys()].map((pageNumber) => (
         <PageCanvas
           key={pageNumber}
           document={props.document}
+          additions={props.additions?.filter((a) => a.pageNumber == pageNumber)}
+          config={props.config}
           pageNumber={pageNumber}
           onClick={(e) => onClick({ pageNumber, e })}
           onMouseMove={(e) => onMouseMove({ pageNumber, e })}
           onMouseOut={() => props?.onMouseOut?.()}
         />
       ))}
-    </>
+    </div>
   );
 }
 

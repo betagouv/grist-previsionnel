@@ -19,7 +19,8 @@
     "pdfjs-dist": "^4.10.38",
     "prettier": "^3.4.2",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-konva": "^19.0.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

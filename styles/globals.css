@@ -65,24 +65,35 @@ a {
 }
 
 div.page {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template: 1fr / 1fr;
 }
 
-canvas.page {
+canvas.page-background,
+.konva-container {
   padding: 20px;
+  grid-column: 1 / 1;
+  grid-row: 1 / 1;
+}
+
+canvas.page-background {
   background-color: lightgrey;
 }
 
 .konva-container {
-  padding: 20px;
-  background-color: #FF000003;
-  position: relative;
+  background-color: #ff000003;
 }
 
 .addition-block {
-  position: absolute;
-  top: 0;
-  right: 0;
+  position: sticky;
+  top: 10px;
+  left: 10px;
+}
+
+.sign-view {
+  display: flex;
+}
+
+.sign-view > * {
   padding: 1em;
 }

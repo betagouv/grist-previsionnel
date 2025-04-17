@@ -1,12 +1,19 @@
+"use client";
 import { useEffect, useRef, useState } from "react";
 
 import Konva from "konva";
 import * as pdfjsLibLatest from "pdfjs-dist";
 import * as pdfjsLibLegacy from "pdfjs-dist/legacy/build/pdf.mjs";
 
+import { Stage, Layer, Rect, Circle, Text, Image } from "react-konva";
+import additionTypes from "../lib/addition-types.js";
+
 pdfjsLibLatest.GlobalWorkerOptions.workerSrc = "pdf.worker.mjs";
 pdfjsLibLegacy.GlobalWorkerOptions.workerSrc = "pdf.worker.legacy.mjs";
 
+function generateKey(a) {
+  return [a.type, a.x, a.y, a.pageNumber].join(" ");
+}
 function PageCanvas(props) {
   const useLegacy = !!navigator.userAgent.match("Firefox/115");
   const pdfjsLib = useLegacy ? pdfjsLibLegacy : pdfjsLibLatest;
@@ -15,80 +22,68 @@ function PageCanvas(props) {
     : "pdf.worker.mjs";
 
   const canvasRef = useRef(null);
-  const konvaRef = useRef(null);
 
+  const [dims, setDims] = useState();
   const [stage, setStage] = useState();
   const [image, setImage] = useState();
-  const [submitted, setSubmitted] = useState(false);
+  const [additionShapes, setAdditionShapes] = useState([]);
 
   const paddingOffset = { x: 20, y: 20 };
+  const checkShift = 0;
 
-  function builderC(x, y) {
-    var shape = new Konva.Circle({
-      x,
-      y,
-      radius: 70,
-      fill: "red",
-      stroke: "black",
-      strokeWidth: 4,
-      draggable: true,
-    });
-    return [shape];
-  }
-
-  function builderT(x, y) {
-    var shape = new Konva.Text({
-      x,
-      y,
-      text: "Simple Text",
-      fill: "red",
-      draggable: true,
-    });
-    shape.offsetX(shape.width() / 2);
-    shape.offsetY(shape.height());
-    return [shape];
-  }
-
-  async function builder(x, y) {
-    const raw = localStorage.getItem("signature");
-    const r = await fetch(raw);
-
-    return new Promise((resolve, reject) => {
-      const shape = Konva.Image.fromURL(
-        raw,
-        (image) => {
-          image.x(x);
-          image.y(y);
-          image.draggable(true);
-
-          image.offsetX(image.width() / 2);
-          image.offsetY(image.height());
-          resolve([image]);
-        },
-        reject,
-      );
-    });
-  }
   useEffect(() => {
-    console.log({ stage, pn: props.pageNumber });
-  }, [stage, props.pageNumber]);
+    if (!props.config) {
+      return;
+    }
+    if (!props.additions?.length) {
+      setAdditionShapes([]);
+    }
+    const shapes = props.additions.map((a) => {
+      if (a.type == "signature") {
+        const raw = localStorage.getItem("signature");
+        const img = document.createElement("img");
+        img.src = raw;
+        const s = (
+          <Image
+            image={img}
+            scale={{ x: 0.5, y: 0.5 }}
+            key={generateKey(a)}
+            x={a.x + checkShift}
+            y={a.y + checkShift}
+          />
+        );
+        return s;
+      } else {
+        const meta = additionTypes[a.type];
+        return (
+          <Text
+            key={generateKey(a)}
+            x={a.x + checkShift}
+            y={a.y + checkShift}
+            fontFamily={"Times-Roman"}
+            text={meta.text(props.config)}
+            fontSize={15}
+          />
+        );
+      }
+    });
+    setAdditionShapes(shapes);
+  }, [props.additions, props.config]);
 
   function setListener(stage) {
     stage.off(".ext");
-    if (!submitted) {
-      stage.on("pointermove.ext", (e) => {
-        props?.onMouseMove({
-          x: e.evt.layerX - image.width() / 2,
-          y: e.evt.layerY - image.height(),
-        });
+    stage.on("pointermove.ext", (e) => {
+      props?.onMouseMove({
+        x: e.evt.layerX - image.width() / 2,
+        y: e.evt.layerY - image.height(),
       });
-      stage.on("pointerup.ext", (e) => {
-        props?.onClick({
-          x: e.evt.layerX - image.width() / 2,
-          y: e.evt.layerY - image.height(),
-        });
+    });
+    stage.on("pointerup.ext", (e) => {
+      props?.onClick({
+        x: e.evt.layerX - image.width() / 2,
+        y: e.evt.layerY - image.height(),
       });
-    }
+    });
   }
   useEffect(() => {
     if (!stage) {
@@ -100,7 +95,6 @@ function PageCanvas(props) {
   useEffect(() => {
     if (
       !canvasRef.current ||
-      !konvaRef.current ||
       !props.document ||
       props.pageNumber === undefined
     ) {
@@ -115,10 +109,8 @@ function PageCanvas(props) {
       var canvasContext = canvas.getContext("2d");
       canvas.height = viewport.height;
       canvas.width = viewport.width;
-      if (stage) {
-        return;
-      }
-
+      setDims({ height: viewport.height, width: viewport.width });
+      /*
       var newStage = new Konva.Stage({
         container: `page-${props.pageNumber}`, // id of container <div>
         width: canvas.width,
@@ -127,7 +119,7 @@ function PageCanvas(props) {
 
       newStage.opacity(0.5);
       newStage.alpha(0.5);
-      konvaRef.current.style = `left:-${(canvas.width + paddingOffset.x * 2) / 1}px`;
+      `;
 
       // then create layer
       var savingLayer = new Konva.Layer();
@@ -164,7 +156,7 @@ function PageCanvas(props) {
 
       setListener(newStage);
       setStage(newStage);
-
+*/
       var renderContext = {
         canvasContext,
         viewport,
@@ -183,14 +175,23 @@ function PageCanvas(props) {
   }, [canvasRef, props.document, props.pageNumber]);
 
   return (
-    <div className="page">
-      <canvas className="page" ref={canvasRef}></canvas>
-      <div
-        ref={konvaRef}
-        className="konva-container"
-        id={`page-${props.pageNumber}`}
-      ></div>
-    </div>
+    <>
+      <div className="page">
+        <canvas className="page-background" ref={canvasRef}></canvas>
+        {dims ? (
+          <Stage
+            className="konva-container"
+            height={dims.height}
+            width={dims.width}
+            opacity={0.5}
+          >
+            <Layer>{additionShapes}</Layer>
+          </Stage>
+        ) : (
+          <></>
+        )}
+      </div>
+    </>
   );
 }
 

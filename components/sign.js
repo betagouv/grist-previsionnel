@@ -16,6 +16,9 @@ export default function SignPDFPage(props) {
   const [mouseMove, setMouseMove] = useState();
   const [additions, setAdditions] = useState([
     { type: "signature", x: 100, y: 100, pageNumber: 0 },
+    { type: "date", x: 100, y: 450, pageNumber: 1 },
+    { type: "title", x: 100, y: 500, pageNumber: 1 },
+    { type: "name", x: 100, y: 550, pageNumber: 0 },
   ]);
   const [selectedAdditionType, setSelectedAdditionType] = useState();
 
@@ -27,7 +30,7 @@ export default function SignPDFPage(props) {
     setConfig(EditView.getConfig());
   }, []);
 
-  async function buildPdf() {
+  async function buildPdf(additions) {
     if (!config) {
       return;
     }
@@ -46,7 +49,7 @@ export default function SignPDFPage(props) {
         return await Promise.all(
           pageAdditions.map(async (addition) => {
             const meta = additionTypes[addition.type];
-            const text = meta.text(config);
+
             const { width, height } = pageToEdit.getSize();
             if (meta.writing) {
               const raw = localStorage.getItem("signature");
@@ -57,16 +60,19 @@ export default function SignPDFPage(props) {
 
               pageToEdit.drawImage(pngImage, {
                 x: addition.x,
-                y: height - addition.y - pngDims.height,
+                y: height - addition.y - pngDims.height / 2,
+                height: pngDims.height / 2,
+                width: pngDims.width / 2,
               });
             } else {
+              const text = meta.text(config);
               const font = timesRomanFont;
               const fontSize = 15;
               const lineHeight = font.heightAtSize(fontSize) * 1.5;
 
               pageToEdit.drawText(text, {
                 x: addition.x,
-                y: height - addition.y - fontSize / 2,
+                y: height - addition.y - font.heightAtSize(fontSize),
                 size: fontSize,
                 lineHeight,
                 font,
@@ -87,22 +93,28 @@ export default function SignPDFPage(props) {
     }
 
     async function buildPdfEffect() {
-      const data = await buildPdf();
+      const data = await buildPdf([]);
       const previewPDF = await pdfjsLib.getDocument({ data }).promise;
       setPreviewPDF(previewPDF);
     }
     buildPdfEffect();
-  }, [inputPDF]);
+  }, [inputPDF, config]);
 
   async function postNew() {
     if (props.postNew) {
-      const pdf = await buildPdf();
+      const pdf = await buildPdf(additions);
       props.postNew(pdf);
     }
   }
 
+  useEffect(
+    (v) => {
+      console.log({ v, selectedAdditionType });
+    },
+    [selectedAdditionType],
+  );
+
   function onClick({ pageNumber, x, y }) {
-    console.log({ e: "click", pageNumber, x, y, selectedAdditionType });
     if (!selectedAdditionType) {
       return;
     }
@@ -114,7 +126,6 @@ export default function SignPDFPage(props) {
   }
 
   function onMouseMove(value) {
-    console.log({ e: "move", ...value, selectedAdditionType });
     setMouseMove(value);
   }
   function onRemoveAddition(indexToDrop) {
@@ -129,27 +140,31 @@ export default function SignPDFPage(props) {
   return showEdit ? (
     <EditView onClose={onCloseEdit} />
   ) : (
-    <>
-      {props?.children}
-      <AdditionBlock
-        selectedAdditionType={selectedAdditionType}
-        setSelectedAdditionType={setSelectedAdditionType}
-        setShowEdit={setShowEdit}
-        additions={additions}
-        onRemoveAddition={onRemoveAddition}
-      >
-        <button onClick={postNew} disabled={!previewPDF}>
-          Create and add updated PDF
-        </button>
-      </AdditionBlock>
+    <div className="sign-view">
+      <div>
+        {props?.children}
+        <AdditionBlock
+          selectedAdditionType={selectedAdditionType}
+          setSelectedAdditionType={setSelectedAdditionType}
+          setShowEdit={setShowEdit}
+          additions={additions}
+          onRemoveAddition={onRemoveAddition}
+        >
+          <button onClick={postNew} disabled={!previewPDF}>
+            Create and add updated PDF
+          </button>
+        </AdditionBlock>
+      </div>
       {previewPDF && (
         <DocumentViewer
           document={previewPDF}
+          config={config}
+          additions={additions}
           onClick={onClick}
           onMouseMove={onMouseMove}
           onMouseOut={() => setMouseMove()}
         />
       )}
-    </>
+    </div>
   );
 }
