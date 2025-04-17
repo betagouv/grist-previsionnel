@@ -1,11 +1,9 @@
-"use client";
 import { useEffect, useRef, useState } from "react";
 
-import Konva from "konva";
 import * as pdfjsLibLatest from "pdfjs-dist";
 import * as pdfjsLibLegacy from "pdfjs-dist/legacy/build/pdf.mjs";
 
-import { Stage, Layer, Rect, Circle, Text, Image } from "react-konva";
+import { Stage, Layer, Text, Image } from "react-konva";
 import additionTypes from "../lib/addition-types.js";
 
 pdfjsLibLatest.GlobalWorkerOptions.workerSrc = "pdf.worker.mjs";

@@ -43,7 +43,7 @@ export default function SignPDFPage(props) {
             const meta = additionTypes[addition.type];
 
             const { width, height } = pageToEdit.getSize();
-            if (meta.writing) {
+            if (meta.type == "signature") {
               const raw = localStorage.getItem("signature");
               const signatureBlob = await fetch(raw);
               const pngImageBytes = await signatureBlob.arrayBuffer();
@@ -110,9 +110,6 @@ export default function SignPDFPage(props) {
     ]);
   }
 
-  function onMouseMove(value) {
-    setMouseMove(value);
-  }
   function onRemoveAddition(indexToDrop) {
     setAdditions([...additions.filter((a, i) => i != indexToDrop)]);
   }
@@ -146,7 +143,7 @@ export default function SignPDFPage(props) {
           config={config}
           additions={additions}
           onClick={onClick}
-          onMouseMove={onMouseMove}
+          onMouseMove={setMouseMove}
           onMouseOut={() => setMouseMove()}
         />
       )}
