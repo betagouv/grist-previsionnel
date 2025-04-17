@@ -64,9 +64,20 @@ a {
   height: 80%;
 }
 
+div.page {
+  display: flex;
+  flex-wrap: wrap;
+}
+
 canvas.page {
   padding: 20px;
   background-color: lightgrey;
+}
+
+.konva-container {
+  padding: 20px;
+  background-color: #FF000003;
+  position: relative;
 }
 
 .addition-block {

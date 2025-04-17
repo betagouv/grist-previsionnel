@@ -21,18 +21,16 @@ function DocumentViewer(props) {
 
   return (
     <>
-      <div>
-        {[...Array(pageCount).keys()].map((pageNumber) => (
-          <PageCanvas
-            key={pageNumber}
-            document={props.document}
-            pageNumber={pageNumber}
-            onClick={(e) => onClick({ pageNumber, e })}
-            onMouseMove={(e) => onMouseMove({ pageNumber, e })}
-            onMouseOut={() => props?.onMouseOut?.()}
-          />
-        ))}
-      </div>
+      {[...Array(pageCount).keys()].map((pageNumber) => (
+        <PageCanvas
+          key={pageNumber}
+          document={props.document}
+          pageNumber={pageNumber}
+          onClick={(e) => onClick({ pageNumber, e })}
+          onMouseMove={(e) => onMouseMove({ pageNumber, e })}
+          onMouseOut={() => props?.onMouseOut?.()}
+        />
+      ))}
     </>
   );
 }

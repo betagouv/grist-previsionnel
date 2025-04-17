@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 
@@ -14,7 +14,9 @@ export default function SignPDFPage(props) {
   const [previewPDF, setPreviewPDF] = useState();
 
   const [mouseMove, setMouseMove] = useState();
-  const [additions, setAdditions] = useState([]);
+  const [additions, setAdditions] = useState([
+    { type: "signature", x: 100, y: 100, pageNumber: 0 },
+  ]);
   const [selectedAdditionType, setSelectedAdditionType] = useState();
 
   const [showEdit, setShowEdit] = useState(false);
@@ -26,13 +28,12 @@ export default function SignPDFPage(props) {
   }, []);
 
   async function buildPdf() {
+    if (!config) {
+      return;
+    }
     const pdfDoc = await PDFDocument.load(inputPDF);
     pdfDoc.registerFontkit(fontkit);
     const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
-
-    const fontUrl = "ShadowsIntoLight-Regular.ttf";
-    const fontBytes = await fetch(fontUrl).then((res) => res.arrayBuffer());
-    const handWritingFont = await pdfDoc.embedFont(fontBytes);
 
     const additionsByPage = pdfDoc.getPages().map(() => []);
     additions.forEach((addition) => {
@@ -42,21 +43,37 @@ export default function SignPDFPage(props) {
     const done = await Promise.all(
       additionsByPage.map(async (pageAdditions, pageNumber) => {
         const pageToEdit = await pdfDoc.getPage(pageNumber);
-        pageAdditions.forEach((addition) => {
-          const meta = additionTypes[addition.type];
-          const text = meta.text(config);
-          const font = meta.writing ? handWritingFont : timesRomanFont;
-          const fontSize = 15;
-          const { width, height } = pageToEdit.getSize();
-          const lineHeight = font.heightAtSize(fontSize) * 1.5;
-          pageToEdit.drawText(text, {
-            x: addition.x,
-            y: height - addition.y - fontSize / 2,
-            size: fontSize,
-            lineHeight,
-            font,
-          });
-        });
+        return await Promise.all(
+          pageAdditions.map(async (addition) => {
+            const meta = additionTypes[addition.type];
+            const text = meta.text(config);
+            const { width, height } = pageToEdit.getSize();
+            if (meta.writing) {
+              const raw = localStorage.getItem("signature");
+              const signatureBlob = await fetch(raw);
+              const pngImageBytes = await signatureBlob.arrayBuffer();
+              const pngImage = await pdfDoc.embedPng(pngImageBytes);
+              const pngDims = pngImage.scale(1);
+
+              pageToEdit.drawImage(pngImage, {
+                x: addition.x,
+                y: height - addition.y - pngDims.height,
+              });
+            } else {
+              const font = timesRomanFont;
+              const fontSize = 15;
+              const lineHeight = font.heightAtSize(fontSize) * 1.5;
+
+              pageToEdit.drawText(text, {
+                x: addition.x,
+                y: height - addition.y - fontSize / 2,
+                size: fontSize,
+                lineHeight,
+                font,
+              });
+            }
+          }),
+        );
       }),
     );
 
@@ -66,9 +83,6 @@ export default function SignPDFPage(props) {
   useEffect(() => {
     if (!inputPDF) {
       setPreviewPDF();
-      if (additions.length) {
-        setAdditions([]);
-      }
       return;
     }
 
@@ -78,7 +92,7 @@ export default function SignPDFPage(props) {
       setPreviewPDF(previewPDF);
     }
     buildPdfEffect();
-  }, [inputPDF, additions]);
+  }, [inputPDF]);
 
   async function postNew() {
     if (props.postNew) {
@@ -88,6 +102,7 @@ export default function SignPDFPage(props) {
   }
 
   function onClick({ pageNumber, x, y }) {
+    console.log({ e: "click", pageNumber, x, y, selectedAdditionType });
     if (!selectedAdditionType) {
       return;
     }
@@ -98,6 +113,10 @@ export default function SignPDFPage(props) {
     ]);
   }
 
+  function onMouseMove(value) {
+    console.log({ e: "move", ...value, selectedAdditionType });
+    setMouseMove(value);
+  }
   function onRemoveAddition(indexToDrop) {
     setAdditions([...additions.filter((a, i) => i != indexToDrop)]);
   }
@@ -118,20 +137,19 @@ export default function SignPDFPage(props) {
         setShowEdit={setShowEdit}
         additions={additions}
         onRemoveAddition={onRemoveAddition}
-      />
+      >
+        <button onClick={postNew} disabled={!previewPDF}>
+          Create and add updated PDF
+        </button>
+      </AdditionBlock>
       {previewPDF && (
         <DocumentViewer
           document={previewPDF}
           onClick={onClick}
-          onMouseMove={setMouseMove}
+          onMouseMove={onMouseMove}
           onMouseOut={() => setMouseMove()}
         />
       )}
-      <div>
-        <button onClick={postNew} disabled={!previewPDF}>
-          Create and add updated PDF
-        </button>
-      </div>
     </>
   );
 }
