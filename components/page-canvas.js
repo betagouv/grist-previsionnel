@@ -24,8 +24,6 @@ function PageCanvas(props) {
   const canvasRef = useRef(null);
 
   const [dims, setDims] = useState();
-  const [stage, setStage] = useState();
-  const [image, setImage] = useState();
   const [additionShapes, setAdditionShapes] = useState([]);
 
   const paddingOffset = { x: 20, y: 20 };
@@ -70,27 +68,12 @@ function PageCanvas(props) {
     setAdditionShapes(shapes);
   }, [props.additions, props.config]);
 
-  function setListener(stage) {
-    stage.off(".ext");
-    stage.on("pointermove.ext", (e) => {
-      props?.onMouseMove({
-        x: e.evt.layerX - image.width() / 2,
-        y: e.evt.layerY - image.height(),
-      });
-    });
-    stage.on("pointerup.ext", (e) => {
-      props?.onClick({
-        x: e.evt.layerX - image.width() / 2,
-        y: e.evt.layerY - image.height(),
-      });
+  function onPointerUp(e) {
+    props?.onClick({
+      x: e.evt.layerX, // - image.width() / 2,
+      y: e.evt.layerY, // - image.height(),
     });
   }
-  useEffect(() => {
-    if (!stage) {
-      return;
-    }
-    setListener(stage);
-  }, [props?.onMouseMove, props?.onClick, stage]);
 
   useEffect(() => {
     if (
@@ -110,53 +93,7 @@ function PageCanvas(props) {
       canvas.height = viewport.height;
       canvas.width = viewport.width;
       setDims({ height: viewport.height, width: viewport.width });
-      /*
-      var newStage = new Konva.Stage({
-        container: `page-${props.pageNumber}`, // id of container <div>
-        width: canvas.width,
-        height: canvas.height,
-      });
 
-      newStage.opacity(0.5);
-      newStage.alpha(0.5);
-      `;
-
-      // then create layer
-      var savingLayer = new Konva.Layer();
-      var temporyLayer = new Konva.Layer();
-      newStage.add(savingLayer);
-      newStage.add(temporyLayer);
-
-      var shapes = await builder(newStage.width() / 2, newStage.height() / 2);
-      setImage(shapes[0]);
-      shapes.forEach((shape) => {
-        shape.opacity(0.5);
-        shape.alpha(0.5);
-        temporyLayer.add(shape);
-      });
-
-      newStage.on("pointermove", (e) => {
-        shapes.forEach((shape) => {
-          shape.x(e.evt.layerX);
-          shape.y(e.evt.layerY);
-        });
-      });
-
-      newStage.on("pointerup", async (e) => {
-        var savedShapes = await builder(e.evt.layerX, e.evt.layerY);
-        savingLayer.add(savedShapes[0]);
-        shapes.forEach((shape) => {
-          temporyLayer.remove(shape);
-        });
-
-        newStage.off("pointerup");
-        newStage.off("pointermove");
-        setSubmitted(true);
-      });
-
-      setListener(newStage);
-      setStage(newStage);
-*/
       var renderContext = {
         canvasContext,
         viewport,
@@ -183,7 +120,8 @@ function PageCanvas(props) {
             className="konva-container"
             height={dims.height}
             width={dims.width}
-            opacity={0.5}
+            opacity={1}
+            onPointerUp={onPointerUp}
           >
             <Layer>{additionShapes}</Layer>
           </Stage>

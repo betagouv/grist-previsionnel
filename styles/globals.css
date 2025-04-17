@@ -81,13 +81,24 @@ canvas.page-background {
 }
 
 .konva-container {
-  background-color: #ff000003;
+  background-color: #ff000000;
 }
 
 .addition-block {
   position: sticky;
   top: 10px;
   left: 10px;
+}
+
+fieldset {
+  padding: 0.3em;
+  border-radius: 5px;
+}
+
+.addition-block button,
+button.submit {
+  padding: 0.3em;
+  margin: 0.1em;
 }
 
 .sign-view {

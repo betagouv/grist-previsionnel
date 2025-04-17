@@ -14,12 +14,7 @@ export default function SignPDFPage(props) {
   const [previewPDF, setPreviewPDF] = useState();
 
   const [mouseMove, setMouseMove] = useState();
-  const [additions, setAdditions] = useState([
-    { type: "signature", x: 100, y: 100, pageNumber: 0 },
-    { type: "date", x: 100, y: 450, pageNumber: 1 },
-    { type: "title", x: 100, y: 500, pageNumber: 1 },
-    { type: "name", x: 100, y: 550, pageNumber: 0 },
-  ]);
+  const [additions, setAdditions] = useState([]);
   const [selectedAdditionType, setSelectedAdditionType] = useState();
 
   const [showEdit, setShowEdit] = useState(false);
@@ -31,9 +26,6 @@ export default function SignPDFPage(props) {
   }, []);
 
   async function buildPdf(additions) {
-    if (!config) {
-      return;
-    }
     const pdfDoc = await PDFDocument.load(inputPDF);
     pdfDoc.registerFontkit(fontkit);
     const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
@@ -87,7 +79,7 @@ export default function SignPDFPage(props) {
   }
 
   useEffect(() => {
-    if (!inputPDF) {
+    if (!inputPDF || !config) {
       setPreviewPDF();
       return;
     }
@@ -106,13 +98,6 @@ export default function SignPDFPage(props) {
       props.postNew(pdf);
     }
   }
-
-  useEffect(
-    (v) => {
-      console.log({ v, selectedAdditionType });
-    },
-    [selectedAdditionType],
-  );
 
   function onClick({ pageNumber, x, y }) {
     if (!selectedAdditionType) {
@@ -150,7 +135,7 @@ export default function SignPDFPage(props) {
           additions={additions}
           onRemoveAddition={onRemoveAddition}
         >
-          <button onClick={postNew} disabled={!previewPDF}>
+          <button className="submit" onClick={postNew} disabled={!previewPDF}>
             Create and add updated PDF
           </button>
         </AdditionBlock>
