@@ -40,7 +40,6 @@ export default function SignPDFPage(props) {
         const pageToEdit = await pdfDoc.getPage(pageNumber);
         return await Promise.all(
           pageAdditions.map(async (addition) => {
-
             const { width, height } = pageToEdit.getSize();
             if (addition.type == "signature") {
               const raw = localStorage.getItem("signature");
@@ -95,7 +94,8 @@ export default function SignPDFPage(props) {
   async function postNew() {
     if (props.postNew) {
       const pdf = await buildPdf(additions);
-      props.postNew(pdf);
+      await props.postNew(pdf);
+      setAdditions([]);
     }
   }
 
