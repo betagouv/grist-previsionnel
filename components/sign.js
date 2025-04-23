@@ -5,6 +5,7 @@ import fontkit from "@pdf-lib/fontkit";
 import DocumentViewer from "../components/document-viewer.js";
 import EditView from "../components/edit-view.js";
 import additionTypes from "../lib/addition-types.js";
+import signatureScale from "../lib/signature-scale.js";
 import AdditionBlock from "../components/addition-block.js";
 
 const key = "Piece_jointe";
@@ -50,9 +51,9 @@ export default function SignPDFPage(props) {
 
               pageToEdit.drawImage(pngImage, {
                 x: addition.x,
-                y: height - addition.y - pngDims.height / 2,
-                height: pngDims.height / 2,
-                width: pngDims.width / 2,
+                y: height - addition.y - pngDims.height / signatureScale,
+                height: pngDims.height / signatureScale,
+                width: pngDims.width / signatureScale,
               });
             } else {
               const meta = additionTypes[addition.type];

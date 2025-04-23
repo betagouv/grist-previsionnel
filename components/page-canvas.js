@@ -5,6 +5,7 @@ import * as pdfjsLibLegacy from "pdfjs-dist/legacy/build/pdf.mjs";
 
 import { Stage, Layer, Text, Image } from "react-konva";
 import additionTypes from "../lib/addition-types.js";
+import signatureScale from "../lib/signature-scale.js";
 
 pdfjsLibLatest.GlobalWorkerOptions.workerSrc = "pdf.worker.mjs";
 pdfjsLibLegacy.GlobalWorkerOptions.workerSrc = "pdf.worker.legacy.mjs";
@@ -42,7 +43,7 @@ function PageCanvas(props) {
         const s = (
           <Image
             image={img}
-            scale={{ x: 0.5, y: 0.5 }}
+            scale={{ x: 1 / signatureScale, y: 1 / signatureScale }}
             key={generateKey(a)}
             x={a.x + checkShift}
             y={a.y + checkShift}
