@@ -24,7 +24,7 @@ export default function SignPDFPage(props) {
 
   useEffect(() => {
     setConfig(EditView.getConfig());
-  }, []);
+  }, [showEdit]);
 
   async function buildPdf(additions) {
     const pdfDoc = await PDFDocument.load(inputPDF);
@@ -43,7 +43,7 @@ export default function SignPDFPage(props) {
           pageAdditions.map(async (addition) => {
             const { width, height } = pageToEdit.getSize();
             if (addition.type == "signature") {
-              const raw = localStorage.getItem("signature");
+              const raw = config.signature;
               const signatureBlob = await fetch(raw);
               const pngImageBytes = await signatureBlob.arrayBuffer();
               const pngImage = await pdfDoc.embedPng(pngImageBytes);
@@ -79,7 +79,7 @@ export default function SignPDFPage(props) {
   }
 
   useEffect(() => {
-    if (!inputPDF || !config) {
+    if (!inputPDF) {
       setPreviewPDF();
       return;
     }
@@ -130,6 +130,7 @@ export default function SignPDFPage(props) {
           selectedAdditionType={selectedAdditionType}
           setSelectedAdditionType={setSelectedAdditionType}
           setShowEdit={setShowEdit}
+          config={config}
           additions={additions}
           onRemoveAddition={onRemoveAddition}
         >

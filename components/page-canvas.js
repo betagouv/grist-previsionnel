@@ -29,15 +29,12 @@ function PageCanvas(props) {
   const checkShift = 0;
 
   useEffect(() => {
-    if (!props.config) {
-      return;
-    }
     if (!props.additions?.length) {
       setAdditionShapes([]);
     }
     const shapes = props.additions.map((a) => {
       if (a.type == "signature") {
-        const raw = localStorage.getItem("signature");
+        const raw = props.config.signature;
         const img = document.createElement("img");
         img.src = raw;
         const s = (

@@ -90,6 +90,10 @@ canvas.page-background {
   left: 10px;
 }
 
+.disabled {
+  color: grey;
+}
+
 fieldset {
   padding: 0.3em;
   border-radius: 5px;

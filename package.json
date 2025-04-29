@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "prettier": "prettier --write pages components lib styles"
   },
   "dependencies": {
     "@handsontable/react-wrapper": "^15.0.0",

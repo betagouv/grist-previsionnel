@@ -3,16 +3,16 @@ import { useEffect, useState } from "react";
 function EditView(props) {
   const [title, setTitle] = useState("");
   const [name, setName] = useState("");
+  const [signature, setSignature] = useState("");
   const [init, setInit] = useState(false);
-  const [signatureImg, setSignatureImg] = useState();
 
   useEffect(() => {
     const config = EditView.getConfig();
     if (config) {
       setTitle(config.title);
       setName(config.name);
+      setSignature(config.signature);
     }
-    setSignatureImg(localStorage.getItem("signature"));
     setInit(true);
   }, []);
 
@@ -23,9 +23,10 @@ function EditView(props) {
     const config = {
       title,
       name,
+      signature,
     };
     window.localStorage.setItem("sign-config", JSON.stringify(config));
-  }, [title, name]);
+  }, [title, name, signature]);
 
   function updateSignature(event) {
     const b = event.target.files[0];
@@ -33,13 +34,16 @@ function EditView(props) {
     reader.addEventListener(
       "load",
       () => {
-        localStorage.setItem("signature", reader.result);
-        setSignatureImg(reader.result);
+        setSignature(reader.result);
         event.target.value = null;
       },
       false,
     );
     reader.readAsDataURL(b);
+  }
+
+  function resetSignature() {
+    setSignature("");
   }
 
   return (
@@ -63,11 +67,19 @@ function EditView(props) {
       <div>
         <label>
           <div>Signature:</div>
-          <img src={signatureImg} />
+        </label>
+        {signature.length ? (
+          <>
+            <img src={signature} />
+            <div>
+              <button onClick={resetSignature}>Reset signature</button>
+            </div>
+          </>
+        ) : (
           <div>
             <input type="file" accept="image/*" onChange={updateSignature} />
           </div>
-        </label>
+        )}
       </div>
       <button onClick={() => props?.onClose?.({ title, name })}>Close</button>
     </div>
@@ -75,7 +87,8 @@ function EditView(props) {
 }
 
 EditView.getConfig = () => {
-  return JSON.parse(window.localStorage.getItem("sign-config"));
+  const config = JSON.parse(window.localStorage.getItem("sign-config"));
+  return config;
 };
 
 export default EditView;
