@@ -15,7 +15,7 @@
     "canvas": "^3.0.0-rc3",
     "handsontable": "^15.0.0",
     "konva": "^9.3.20",
-    "next": "15.1.5",
+    "next": "^15.3.1",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^4.10.38",
     "prettier": "^3.4.2",
