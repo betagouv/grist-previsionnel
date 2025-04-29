@@ -68,7 +68,7 @@ function EditView(props) {
         <label>
           <div>Signature:</div>
         </label>
-        {signature.length ? (
+        {signature?.length ? (
           <>
             <img src={signature} />
             <div>
