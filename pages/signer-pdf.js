@@ -87,7 +87,7 @@ export default function SignPDFPage() {
 
     const previousIds = record[mapping[key]];
     const newIds = await response.json();
-    const attachmentIds = [...previousIds, ...newIds]
+    const attachmentIds = [...previousIds, ...newIds];
     const payload = [
       {
         id: record.id,
@@ -95,42 +95,29 @@ export default function SignPDFPage() {
           [mapping[key]]: ["L", ...attachmentIds],
         },
       },
-    ]
+    ];
     try {
-      const tableId = await window.grist.getTable().getTableId();
-      const patchUrl = `${tokenInfo.baseUrl}/tables/${tableId}/records?auth=${tokenInfo.token}`;
-      const patchResponse = await fetch(patchUrl, {
-        method: "PATCH",
-        body: JSON.stringify({records: payload}),
-        headers: {
-          "Content-Type": "application/json",
-          "X-Requested-With": "XMLHttpRequest",
-        },
-      });
-      console.log(await patchResponse.json())
-      //await window.grist.getTable().update(payload);
+      await window.grist.getTable().update(payload);
     } catch (error) {
-      console.log({error})/*
       const tableId = await window.grist.getTable().getTableId();
       const fallbackPayload = {
         error,
         payload,
         attachmentIds,
         tableId,
-        tokenInfo
-      }
-      console.log({fallbackPayload})
-      const fallbackUrl = "http://127.0.0.1:5000/grist-proxy/attachment"
+        tokenInfo,
+      };
+      const fallbackUrl =
+        "https://notifs-grist.incubateur-agriculture.beta.gouv.fr/grist-proxy/attachment";
       const fallbackResponse = await fetch(fallbackUrl, {
         method: "POST",
         body: JSON.stringify(fallbackPayload),
         headers: {
-          "Content-Type": "application/json"
-        }
-      })
-      const d = await fallbackResponse.json()
-      console.log({d})//*/
-    }//*/
+          "Content-Type": "application/json",
+        },
+      });
+      const d = await fallbackResponse.json();
+    }
   }
 
   return (
