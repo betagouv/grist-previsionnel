@@ -6,7 +6,11 @@ export default function Document() {
     <Html lang="en">
       <Head />
       <body className={`env-${process.env.NODE_ENV}`}>
-        {process.env.NODE_ENV == "development" ? <div className="dev-warning">Environnement de DEV</div> : <></>}
+        {process.env.NODE_ENV == "development" ? (
+          <div className="dev-warning">Environnement de DEV</div>
+        ) : (
+          <></>
+        )}
         <Main className="main" />
         <NextScript />
         <Script

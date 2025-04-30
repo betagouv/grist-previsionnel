@@ -12,7 +12,8 @@
 
 html,
 body,
-body, .main {
+body,
+.main {
   max-width: 100vw;
   overflow-x: hidden;
   height: 100%;
