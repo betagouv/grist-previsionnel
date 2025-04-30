@@ -5,8 +5,9 @@ export default function Document() {
   return (
     <Html lang="en">
       <Head />
-      <body>
-        <Main />
+      <body className={`env-${process.env.NODE_ENV}`}>
+        {process.env.NODE_ENV == "development" ? <div className="dev-warning">Environnement de DEV</div> : <></>}
+        <Main className="main" />
         <NextScript />
         <Script
           src="https://grist.numerique.gouv.fr/grist-plugin-api.js"
