@@ -84,17 +84,53 @@ export default function SignPDFPage() {
         "X-Requested-With": "XMLHttpRequest",
       },
     });
-    const newIds = await response.json();
 
     const previousIds = record[mapping[key]];
-    window.grist.getTable().update([
+    const newIds = await response.json();
+    const attachmentIds = [...previousIds, ...newIds]
+    const payload = [
       {
         id: record.id,
         fields: {
-          [mapping[key]]: ["L", ...previousIds, ...newIds],
+          [mapping[key]]: ["L", ...attachmentIds],
         },
       },
-    ]);
+    ]
+    try {
+      const tableId = await window.grist.getTable().getTableId();
+      const patchUrl = `${tokenInfo.baseUrl}/tables/${tableId}/records?auth=${tokenInfo.token}`;
+      const patchResponse = await fetch(patchUrl, {
+        method: "PATCH",
+        body: JSON.stringify({records: payload}),
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+        },
+      });
+      console.log(await patchResponse.json())
+      //await window.grist.getTable().update(payload);
+    } catch (error) {
+      console.log({error})/*
+      const tableId = await window.grist.getTable().getTableId();
+      const fallbackPayload = {
+        error,
+        payload,
+        attachmentIds,
+        tableId,
+        tokenInfo
+      }
+      console.log({fallbackPayload})
+      const fallbackUrl = "http://127.0.0.1:5000/grist-proxy/attachment"
+      const fallbackResponse = await fetch(fallbackUrl, {
+        method: "POST",
+        body: JSON.stringify(fallbackPayload),
+        headers: {
+          "Content-Type": "application/json"
+        }
+      })
+      const d = await fallbackResponse.json()
+      console.log({d})//*/
+    }//*/
   }
 
   return (
