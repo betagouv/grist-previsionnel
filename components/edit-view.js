@@ -3,14 +3,16 @@ import { useEffect, useState } from "react";
 function EditView(props) {
   const [title, setTitle] = useState("");
   const [name, setName] = useState("");
+  const [city, setCity] = useState("");
   const [signature, setSignature] = useState("");
   const [init, setInit] = useState(false);
 
   useEffect(() => {
     const config = EditView.getConfig();
     if (config) {
-      setTitle(config.title);
+      setCity(config.city);
       setName(config.name);
+      setTitle(config.title);
       setSignature(config.signature);
     }
     setInit(true);
@@ -21,12 +23,13 @@ function EditView(props) {
       return;
     }
     const config = {
-      title,
+      city,
       name,
+      title,
       signature,
     };
     window.localStorage.setItem("sign-config", JSON.stringify(config));
-  }, [title, name, signature]);
+  }, [city, name, title, signature]);
 
   function updateSignature(event) {
     const b = event.target.files[0];
@@ -48,6 +51,16 @@ function EditView(props) {
 
   return (
     <div>
+      <div>
+        <label>
+          <div>City:</div>
+          <textarea
+            rows={3}
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+          />
+        </label>{" "}
+      </div>
       <div>
         <label>
           <div>Title:</div>
