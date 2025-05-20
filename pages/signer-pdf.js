@@ -31,7 +31,7 @@ export default function SignPDFPage() {
 
       const attachmentIds = record[mapping[key]] || [];
 
-      const tokenInfo = await grist.docApi.getAccessToken({ readOnly: true });
+      const tokenInfo = await grist.docApi.getAccessToken({ readOnly: false });
       const data = await Promise.all(
         attachmentIds.map(async (id) => {
           const url = `${tokenInfo.baseUrl}/attachments/${id}?auth=${tokenInfo.token}`;
@@ -57,7 +57,7 @@ export default function SignPDFPage() {
       return;
     }
     async function fetchDoc() {
-      const tokenInfo = await grist.docApi.getAccessToken({ readOnly: true });
+      const tokenInfo = await grist.docApi.getAccessToken({ readOnly: false });
       const f = files.find((f) => f.id == selectedFile);
       const contentUrl = `${tokenInfo.baseUrl}/attachments/${f.id}/download?auth=${tokenInfo.token}`;
       const response = await fetch(contentUrl);
