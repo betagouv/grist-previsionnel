@@ -108,7 +108,7 @@ export default function SignPDFPage() {
         tokenInfo,
       };
       const fallbackUrl =
-        "https://notifs-grist.incubateur-agriculture.beta.gouv.fr/grist-proxy/attachment";
+        "https://notifs-grist.incubateur-agriculture.beta.gouv.fr/api/grist-proxy/attachment";
       const fallbackResponse = await fetch(fallbackUrl, {
         method: "POST",
         body: JSON.stringify(fallbackPayload),
